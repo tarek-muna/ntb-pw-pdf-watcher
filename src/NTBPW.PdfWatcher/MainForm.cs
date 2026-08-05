@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace NTBPW.PdfWatcher;
 
@@ -396,25 +396,7 @@ internal sealed class MainForm : Form
 
     private void ShowHistory()
     {
-        using var form = new Form
-        {
-            Text = "PDF-Historie",
-            Width = 820,
-            Height = 480,
-            StartPosition = FormStartPosition.CenterParent,
-            Icon = _appIcon
-        };
-        var grid = new DataGridView
-        {
-            Dock = DockStyle.Fill,
-            ReadOnly = true,
-            AutoGenerateColumns = true,
-            DataSource = _history.OrderByDescending(x => x.Timestamp).ToList(),
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-            RowHeadersVisible = false,
-            AllowUserToAddRows = false
-        };
-        form.Controls.Add(grid);
+        using var form = new DocumentsForm(_history, _appIcon);
         form.ShowDialog(this);
     }
 
@@ -524,3 +506,4 @@ internal sealed class MainForm : Form
 
     private void ExitApp() => RequestExit?.Invoke(this, EventArgs.Empty);
 }
+
