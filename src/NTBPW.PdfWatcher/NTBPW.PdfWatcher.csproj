@@ -9,9 +9,10 @@
     <Win32Resource></Win32Resource>
     <AssemblyName>NTB-PW PDF-Watcher</AssemblyName>
     <RootNamespace>NTBPW.PdfWatcher</RootNamespace>
-    <Version>4.2.0</Version>
-    <AssemblyVersion>4.2.0.0</AssemblyVersion>
-    <FileVersion>4.2.0.0</FileVersion>
+    <Version>5.0.0-alpha.1</Version>
+    <AssemblyVersion>5.0.0.0</AssemblyVersion>
+    <FileVersion>5.0.0.0</FileVersion>
+    <InformationalVersion>5.0.0-alpha.1</InformationalVersion>
     <Company>Netz, Technik, Büro GbR</Company>
     <Product>NTB-PW PDF-Watcher Professional</Product>
     <Copyright>© Tarek Muna 2026</Copyright>
