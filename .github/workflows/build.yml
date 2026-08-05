@@ -1,0 +1,33 @@
+name: Build NTB-PW PDF-Watcher
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v6
+
+      - name: .NET 8 einrichten
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Abhängigkeiten wiederherstellen
+        run: dotnet restore .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj
+
+      - name: Anwendung kompilieren
+        run: dotnet build .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj --configuration Release --no-restore
