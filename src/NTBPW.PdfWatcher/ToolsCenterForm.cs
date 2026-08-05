@@ -1,12 +1,12 @@
-namespace NTBPW.PdfWatcher;
+﻿namespace NTBPW.PdfWatcher;
 
-internal sealed class ToolsCenterForm : Form
+internal sealed partial class ToolsCenterForm : Form
 {
     private readonly CheckedListBox _packages = new() { Dock = DockStyle.Fill, CheckOnClick = true };
     private readonly TextBox _softwareLog = LogBox();
     private readonly ComboBox _driveLetter = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox _uncPath = new() { PlaceholderText = @"\\SERVER\Freigabe" };
-    private readonly TextBox _userName = new() { PlaceholderText = @"DOMÄNE\Benutzer (optional)" };
+    private readonly TextBox _userName = new() { PlaceholderText = @"DOMÃ„NE\Benutzer (optional)" };
     private readonly TextBox _password = new() { UseSystemPasswordChar = true, PlaceholderText = "Passwort (wird nicht gespeichert)" };
     private readonly CheckBox _persistent = new() { Text = "Bei Anmeldung wiederherstellen", Checked = true, AutoSize = true };
     private readonly Label _driveStatus = new() { AutoSize = true, Text = "Bereit" };
@@ -46,6 +46,8 @@ internal sealed class ToolsCenterForm : Form
         tabs.TabPages.Add(BuildSoftwarePage());
         tabs.TabPages.Add(BuildNetworkDrivePage());
         tabs.TabPages.Add(BuildDiagnosticsPage());
+tabs.TabPages.Add(BuildWindowsPage());
+tabs.TabPages.Add(BuildSystemPage());
         Controls.Add(tabs);
         UpdateDiagnosticTargetState();
     }
@@ -58,11 +60,11 @@ internal sealed class ToolsCenterForm : Form
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        root.Controls.Add(BuildCard("Apps auswählen", _packages), 0, 0);
+        root.Controls.Add(BuildCard("Apps auswÃ¤hlen", _packages), 0, 0);
         root.Controls.Add(BuildCard("Installationsprotokoll", _softwareLog), 1, 0);
 
         var actions = ActionBar();
-        var install = CreateButton("Ausgewählte installieren", true, 180);
+        var install = CreateButton("AusgewÃ¤hlte installieren", true, 180);
         var upgrade = CreateButton("Alle Apps aktualisieren", false, 170);
         var cancel = CreateButton("Abbrechen", false, 100);
         install.Click += async (_, _) => await InstallSelectedAsync();
@@ -132,9 +134,9 @@ internal sealed class ToolsCenterForm : Form
         root.Controls.Add(BuildCard("Ausgabe", _diagnosticLog), 0, 1);
 
         var actions = ActionBar();
-        var run = CreateButton("Ausführen", true, 120);
+        var run = CreateButton("AusfÃ¼hren", true, 120);
         var flushDns = CreateButton("DNS-Cache leeren", false, 150);
-        var clear = CreateButton("Ausgabe löschen", false, 130);
+        var clear = CreateButton("Ausgabe lÃ¶schen", false, 130);
         var cancel = CreateButton("Abbrechen", false, 100);
         run.Click += async (_, _) => await RunDiagnosticAsync();
         flushDns.Click += async (_, _) => await FlushDnsAsync();
@@ -154,7 +156,7 @@ internal sealed class ToolsCenterForm : Form
         var selected = _packages.CheckedItems.Cast<SoftwarePackage>().ToList();
         if (selected.Count == 0)
         {
-            MessageBox.Show(this, "Bitte mindestens eine App auswählen.", "Software Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Bitte mindestens eine App auswÃ¤hlen.", "Software Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -170,9 +172,9 @@ internal sealed class ToolsCenterForm : Form
         {
             try
             {
-                Append(_softwareLog, $"> Installiere {package.Name} ({package.Id}) …");
+                Append(_softwareLog, $"> Installiere {package.Name} ({package.Id}) â€¦");
                 var result = await WingetService.InstallAsync(package.Id, _operation.Token);
-                Append(_softwareLog, result.Success ? $"✓ {package.Name} wurde verarbeitet." : $"✗ {package.Name}: {result.StandardError}\r\n{result.StandardOutput}");
+                Append(_softwareLog, result.Success ? $"âœ“ {package.Name} wurde verarbeitet." : $"âœ— {package.Name}: {result.StandardError}\r\n{result.StandardOutput}");
             }
             catch (OperationCanceledException)
             {
@@ -185,14 +187,14 @@ internal sealed class ToolsCenterForm : Form
     private async Task UpgradeAllAsync()
     {
         _operation = new CancellationTokenSource();
-        Append(_softwareLog, "> Aktualisiere alle verfügbaren Apps …");
+        Append(_softwareLog, "> Aktualisiere alle verfÃ¼gbaren Apps â€¦");
         var result = await WingetService.UpgradeAllAsync(_operation.Token);
-        Append(_softwareLog, result.Success ? "✓ Aktualisierung abgeschlossen." : $"✗ Aktualisierung fehlgeschlagen: {result.StandardError}\r\n{result.StandardOutput}");
+        Append(_softwareLog, result.Success ? "âœ“ Aktualisierung abgeschlossen." : $"âœ— Aktualisierung fehlgeschlagen: {result.StandardError}\r\n{result.StandardOutput}");
     }
 
     private async Task TestDriveAsync()
     {
-        _driveStatus.Text = "Teste Verbindung …";
+        _driveStatus.Text = "Teste Verbindung â€¦";
         var result = await NetworkDriveService.TestPathAsync(_uncPath.Text);
         _driveStatus.Text = result.Message;
         _driveStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
@@ -203,7 +205,7 @@ internal sealed class ToolsCenterForm : Form
     {
         try
         {
-            _driveStatus.Text = "Verbinde …";
+            _driveStatus.Text = "Verbinde â€¦";
             var result = await NetworkDriveService.ConnectAsync(_driveLetter.Text, _uncPath.Text, _persistent.Checked,
                 string.IsNullOrWhiteSpace(_userName.Text) ? null : _userName.Text,
                 string.IsNullOrWhiteSpace(_password.Text) ? null : _password.Text);
@@ -233,7 +235,7 @@ internal sealed class ToolsCenterForm : Form
         if (_diagnosticCommand.SelectedItem is not DiagnosticCommand command) return;
         _operation = new CancellationTokenSource();
         _diagnosticLog.Clear();
-        _diagnosticStatus.Text = $"{command.Name} läuft …";
+        _diagnosticStatus.Text = $"{command.Name} lÃ¤uft â€¦";
         _diagnosticStatus.ForeColor = Color.DarkOrange;
         try
         {
@@ -311,3 +313,4 @@ internal sealed class ToolsCenterForm : Form
 
     private static void Append(TextBox box, string text) => box.AppendText(text.Trim() + Environment.NewLine + Environment.NewLine);
 }
+
