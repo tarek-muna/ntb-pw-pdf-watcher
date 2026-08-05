@@ -1,0 +1,42 @@
+name: Apply v5 documents integration
+
+on:
+  push:
+    branches:
+      - feature/v5-documents
+    paths:
+      - 'src/NTBPW.PdfWatcher/DocumentsForm.cs'
+      - 'tools/patch-documents-mainform.ps1'
+      - '.github/workflows/apply-v5-documents.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v6
+        with:
+          ref: feature/v5-documents
+          fetch-depth: 0
+
+      - name: MainForm integrieren
+        shell: powershell
+        run: .\tools\patch-documents-mainform.ps1
+
+      - name: Änderung committen
+        shell: powershell
+        run: |
+          if (-not (git status --porcelain)) {
+            Write-Host 'Keine Änderung erforderlich.'
+            exit 0
+          }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/NTBPW.PdfWatcher/MainForm.cs
+          git commit -m 'feat: Dokumentenansicht in Hauptnavigation integrieren'
+          git push origin HEAD:feature/v5-documents
