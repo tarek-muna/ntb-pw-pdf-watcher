@@ -187,7 +187,7 @@ internal sealed class ProfilesForm : Form
 
         var hint = new Label
         {
-            Text = "Netzwerk- und RDP-Pfade wie \\server\scan oder \\tsclient\C\Scan werden unterstützt.",
+            Text = @"Netzwerk- und RDP-Pfade wie \\server\scan oder \\tsclient\C\Scan werden unterstützt.",
             AutoSize = true,
             MaximumSize = new Size(430, 0),
             ForeColor = Color.FromArgb(112, 126, 144),
