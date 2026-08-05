@@ -1,0 +1,59 @@
+name: Build and release NTB-PW PDF-Watcher
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: .NET 8 einrichten
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Inno Setup installieren
+        shell: powershell
+        run: choco install innosetup --yes --no-progress
+
+      - name: Anwendung veröffentlichen
+        shell: powershell
+        run: |
+          dotnet publish .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o .\publish
+
+      - name: Setup erstellen
+        shell: powershell
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ".\installer\NTB-PW-PDF-Watcher.iss"'
+
+      - name: SHA-256 erzeugen
+        shell: powershell
+        run: |
+          $setup = Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe | Select-Object -First 1
+          if (-not $setup) { throw "Setup-Datei nicht gefunden." }
+          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($setup.Name)" | Set-Content -Encoding ascii "$($setup.FullName).sha256"
+
+      - name: GitHub Release veröffentlichen
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/NTB-PW-PDF-Watcher-Setup-*.exe
+            dist/NTB-PW-PDF-Watcher-Setup-*.exe.sha256

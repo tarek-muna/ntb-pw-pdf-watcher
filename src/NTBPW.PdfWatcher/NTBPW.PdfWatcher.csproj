@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>Assets\NTB-PW.ico</ApplicationIcon>
+    <Win32Resource></Win32Resource>
+    <AssemblyName>NTB-PW PDF-Watcher</AssemblyName>
+    <RootNamespace>NTBPW.PdfWatcher</RootNamespace>
+    <Version>4.2.0</Version>
+    <AssemblyVersion>4.2.0.0</AssemblyVersion>
+    <FileVersion>4.2.0.0</FileVersion>
+    <Company>Netz, Technik, Büro GbR</Company>
+    <Product>NTB-PW PDF-Watcher Professional</Product>
+    <Copyright>© Tarek Muna 2026</Copyright>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="Assets\NTB-Logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="Assets\NTB-PW.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
