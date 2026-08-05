@@ -3,22 +3,26 @@ namespace NTBPW.PdfWatcher;
 internal sealed class ToolsCenterForm : Form
 {
     private readonly CheckedListBox _packages = new() { Dock = DockStyle.Fill, CheckOnClick = true };
-    private readonly TextBox _softwareLog = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
+    private readonly TextBox _softwareLog = LogBox();
     private readonly ComboBox _driveLetter = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly TextBox _uncPath = new() { PlaceholderText = @"\\SERVER\Freigabe" };
     private readonly TextBox _userName = new() { PlaceholderText = @"DOMÄNE\Benutzer (optional)" };
     private readonly TextBox _password = new() { UseSystemPasswordChar = true, PlaceholderText = "Passwort (wird nicht gespeichert)" };
     private readonly CheckBox _persistent = new() { Text = "Bei Anmeldung wiederherstellen", Checked = true, AutoSize = true };
     private readonly Label _driveStatus = new() { AutoSize = true, Text = "Bereit" };
-    private readonly TextBox _driveLog = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
+    private readonly TextBox _driveLog = LogBox();
+    private readonly ComboBox _diagnosticCommand = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly TextBox _diagnosticTarget = new() { PlaceholderText = "Ziel, z. B. server01, 192.168.1.1 oder ntb.local" };
+    private readonly TextBox _diagnosticLog = LogBox();
+    private readonly Label _diagnosticStatus = new() { AutoSize = true, Text = "Bereit" };
     private CancellationTokenSource? _operation;
 
     public ToolsCenterForm(Icon icon)
     {
         Text = "NTB Tools Center";
-        Width = 900;
-        Height = 620;
-        MinimumSize = new Size(780, 540);
+        Width = 940;
+        Height = 650;
+        MinimumSize = new Size(820, 560);
         StartPosition = FormStartPosition.CenterParent;
         Icon = icon;
         Font = new Font("Segoe UI", 9F);
@@ -32,25 +36,32 @@ internal sealed class ToolsCenterForm : Form
             _driveLetter.Items.Add(letter + ":");
         _driveLetter.SelectedItem = "Z:";
 
+        foreach (var command in NetworkDiagnosticsService.Commands)
+            _diagnosticCommand.Items.Add(command);
+        _diagnosticCommand.DisplayMember = nameof(DiagnosticCommand.Name);
+        _diagnosticCommand.SelectedIndex = 0;
+        _diagnosticCommand.SelectedIndexChanged += (_, _) => UpdateDiagnosticTargetState();
+
         var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
         tabs.TabPages.Add(BuildSoftwarePage());
         tabs.TabPages.Add(BuildNetworkDrivePage());
+        tabs.TabPages.Add(BuildDiagnosticsPage());
         Controls.Add(tabs);
+        UpdateDiagnosticTargetState();
     }
 
     private TabPage BuildSoftwarePage()
     {
-        var page = new TabPage("Software Center") { BackColor = BackColor, Padding = new Padding(14) };
+        var page = NewPage("Software Center");
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-
         root.Controls.Add(BuildCard("Apps auswählen", _packages), 0, 0);
         root.Controls.Add(BuildCard("Installationsprotokoll", _softwareLog), 1, 0);
 
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Padding = new Padding(0, 8, 0, 0) };
+        var actions = ActionBar();
         var install = CreateButton("Ausgewählte installieren", true, 180);
         var upgrade = CreateButton("Alle Apps aktualisieren", false, 170);
         var cancel = CreateButton("Abbrechen", false, 100);
@@ -68,7 +79,7 @@ internal sealed class ToolsCenterForm : Form
 
     private TabPage BuildNetworkDrivePage()
     {
-        var page = new TabPage("Netzlaufwerke") { BackColor = BackColor, Padding = new Padding(14) };
+        var page = NewPage("Netzlaufwerke");
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 260));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -90,7 +101,7 @@ internal sealed class ToolsCenterForm : Form
         test.Click += async (_, _) => await TestDriveAsync();
         connect.Click += async (_, _) => await ConnectDriveAsync();
         disconnect.Click += async (_, _) => await DisconnectDriveAsync();
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
         buttons.Controls.Add(test);
         buttons.Controls.Add(connect);
         buttons.Controls.Add(disconnect);
@@ -99,6 +110,41 @@ internal sealed class ToolsCenterForm : Form
 
         root.Controls.Add(form, 0, 0);
         root.Controls.Add(BuildCard("Protokoll", _driveLog), 0, 1);
+        page.Controls.Add(root);
+        return page;
+    }
+
+    private TabPage BuildDiagnosticsPage()
+    {
+        var page = NewPage("Netzwerkdiagnose");
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 116));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+
+        var input = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, BackColor = Color.White, Padding = new Padding(18) };
+        input.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+        input.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        AddField(input, "Diagnose", _diagnosticCommand, 0);
+        AddField(input, "Ziel", _diagnosticTarget, 1);
+        input.Controls.Add(_diagnosticStatus, 1, 2);
+        root.Controls.Add(input, 0, 0);
+        root.Controls.Add(BuildCard("Ausgabe", _diagnosticLog), 0, 1);
+
+        var actions = ActionBar();
+        var run = CreateButton("Ausführen", true, 120);
+        var flushDns = CreateButton("DNS-Cache leeren", false, 150);
+        var clear = CreateButton("Ausgabe löschen", false, 130);
+        var cancel = CreateButton("Abbrechen", false, 100);
+        run.Click += async (_, _) => await RunDiagnosticAsync();
+        flushDns.Click += async (_, _) => await FlushDnsAsync();
+        clear.Click += (_, _) => _diagnosticLog.Clear();
+        cancel.Click += (_, _) => _operation?.Cancel();
+        actions.Controls.Add(run);
+        actions.Controls.Add(flushDns);
+        actions.Controls.Add(clear);
+        actions.Controls.Add(cancel);
+        root.Controls.Add(actions, 0, 2);
         page.Controls.Add(root);
         return page;
     }
@@ -116,7 +162,7 @@ internal sealed class ToolsCenterForm : Form
         _softwareLog.Clear();
         if (!await WingetService.IsAvailableAsync(_operation.Token))
         {
-            AppendSoftware("Winget wurde nicht gefunden. Bitte zuerst den Microsoft App Installer installieren oder aktualisieren.");
+            Append(_softwareLog, "Winget wurde nicht gefunden. Bitte den Microsoft App Installer installieren oder aktualisieren.");
             return;
         }
 
@@ -124,13 +170,13 @@ internal sealed class ToolsCenterForm : Form
         {
             try
             {
-                AppendSoftware($"> Installiere {package.Name} ({package.Id}) …");
+                Append(_softwareLog, $"> Installiere {package.Name} ({package.Id}) …");
                 var result = await WingetService.InstallAsync(package.Id, _operation.Token);
-                AppendSoftware(result.Success ? $"✓ {package.Name} wurde verarbeitet." : $"✗ {package.Name}: {result.StandardError}\r\n{result.StandardOutput}");
+                Append(_softwareLog, result.Success ? $"✓ {package.Name} wurde verarbeitet." : $"✗ {package.Name}: {result.StandardError}\r\n{result.StandardOutput}");
             }
             catch (OperationCanceledException)
             {
-                AppendSoftware("Vorgang abgebrochen.");
+                Append(_softwareLog, "Vorgang abgebrochen.");
                 break;
             }
         }
@@ -139,9 +185,9 @@ internal sealed class ToolsCenterForm : Form
     private async Task UpgradeAllAsync()
     {
         _operation = new CancellationTokenSource();
-        AppendSoftware("> Aktualisiere alle verfügbaren Apps …");
+        Append(_softwareLog, "> Aktualisiere alle verfügbaren Apps …");
         var result = await WingetService.UpgradeAllAsync(_operation.Token);
-        AppendSoftware(result.Success ? "✓ Aktualisierung abgeschlossen." : $"✗ Aktualisierung fehlgeschlagen: {result.StandardError}\r\n{result.StandardOutput}");
+        Append(_softwareLog, result.Success ? "✓ Aktualisierung abgeschlossen." : $"✗ Aktualisierung fehlgeschlagen: {result.StandardError}\r\n{result.StandardOutput}");
     }
 
     private async Task TestDriveAsync()
@@ -150,7 +196,7 @@ internal sealed class ToolsCenterForm : Form
         var result = await NetworkDriveService.TestPathAsync(_uncPath.Text);
         _driveStatus.Text = result.Message;
         _driveStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
-        AppendDrive(result.Message);
+        Append(_driveLog, result.Message);
     }
 
     private async Task ConnectDriveAsync()
@@ -158,41 +204,85 @@ internal sealed class ToolsCenterForm : Form
         try
         {
             _driveStatus.Text = "Verbinde …";
-            var result = await NetworkDriveService.ConnectAsync(
-                _driveLetter.Text,
-                _uncPath.Text,
-                _persistent.Checked,
+            var result = await NetworkDriveService.ConnectAsync(_driveLetter.Text, _uncPath.Text, _persistent.Checked,
                 string.IsNullOrWhiteSpace(_userName.Text) ? null : _userName.Text,
                 string.IsNullOrWhiteSpace(_password.Text) ? null : _password.Text);
             _password.Clear();
             _driveStatus.Text = result.Success ? "Netzlaufwerk verbunden." : "Verbindung fehlgeschlagen.";
             _driveStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
-            AppendDrive(result.StandardOutput + Environment.NewLine + result.StandardError);
+            Append(_driveLog, result.StandardOutput + Environment.NewLine + result.StandardError);
         }
         catch (Exception ex)
         {
             _driveStatus.Text = ex.Message;
             _driveStatus.ForeColor = Color.Firebrick;
-            AppendDrive(ex.Message);
+            Append(_driveLog, ex.Message);
         }
     }
 
     private async Task DisconnectDriveAsync()
     {
+        var result = await NetworkDriveService.DisconnectAsync(_driveLetter.Text);
+        _driveStatus.Text = result.Success ? "Netzlaufwerk getrennt." : "Trennen fehlgeschlagen.";
+        _driveStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
+        Append(_driveLog, result.StandardOutput + Environment.NewLine + result.StandardError);
+    }
+
+    private async Task RunDiagnosticAsync()
+    {
+        if (_diagnosticCommand.SelectedItem is not DiagnosticCommand command) return;
+        _operation = new CancellationTokenSource();
+        _diagnosticLog.Clear();
+        _diagnosticStatus.Text = $"{command.Name} läuft …";
+        _diagnosticStatus.ForeColor = Color.DarkOrange;
         try
         {
-            var result = await NetworkDriveService.DisconnectAsync(_driveLetter.Text);
-            _driveStatus.Text = result.Success ? "Netzlaufwerk getrennt." : "Trennen fehlgeschlagen.";
-            _driveStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
-            AppendDrive(result.StandardOutput + Environment.NewLine + result.StandardError);
+            var result = await NetworkDiagnosticsService.RunAsync(command, _diagnosticTarget.Text, _operation.Token,
+                line => BeginInvoke(() => _diagnosticLog.AppendText(line + Environment.NewLine)));
+            _diagnosticStatus.Text = result.Success ? "Diagnose abgeschlossen." : $"Fehlercode {result.ExitCode}";
+            _diagnosticStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
+        }
+        catch (OperationCanceledException)
+        {
+            _diagnosticStatus.Text = "Diagnose abgebrochen.";
+            _diagnosticStatus.ForeColor = Color.DarkOrange;
         }
         catch (Exception ex)
         {
-            _driveStatus.Text = ex.Message;
-            _driveStatus.ForeColor = Color.Firebrick;
-            AppendDrive(ex.Message);
+            _diagnosticStatus.Text = ex.Message;
+            _diagnosticStatus.ForeColor = Color.Firebrick;
+            Append(_diagnosticLog, ex.Message);
         }
     }
+
+    private async Task FlushDnsAsync()
+    {
+        _operation = new CancellationTokenSource();
+        _diagnosticLog.Clear();
+        try
+        {
+            var result = await NetworkDiagnosticsService.FlushDnsAsync(_operation.Token,
+                line => BeginInvoke(() => _diagnosticLog.AppendText(line + Environment.NewLine)));
+            _diagnosticStatus.Text = result.Success ? "DNS-Cache wurde geleert." : "DNS-Cache konnte nicht geleert werden.";
+            _diagnosticStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
+        }
+        catch (Exception ex)
+        {
+            _diagnosticStatus.Text = ex.Message;
+            _diagnosticStatus.ForeColor = Color.Firebrick;
+        }
+    }
+
+    private void UpdateDiagnosticTargetState()
+    {
+        var requiresTarget = (_diagnosticCommand.SelectedItem as DiagnosticCommand)?.RequiresTarget == true;
+        _diagnosticTarget.Enabled = requiresTarget;
+        if (!requiresTarget) _diagnosticTarget.Clear();
+    }
+
+    private TabPage NewPage(string title) => new(title) { BackColor = BackColor, Padding = new Padding(14) };
+    private static TextBox LogBox() => new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, Font = new Font("Consolas", 9F), WordWrap = false };
+    private static FlowLayoutPanel ActionBar() => new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Padding = new Padding(0, 8, 0, 0) };
 
     private static Panel BuildCard(string title, Control content)
     {
@@ -209,7 +299,7 @@ internal sealed class ToolsCenterForm : Form
         control.Dock = DockStyle.Fill;
         control.Margin = new Padding(0, 5, 8, 5);
         form.Controls.Add(control, 1, row);
-        form.SetColumnSpan(control, 2);
+        form.SetColumnSpan(control, Math.Max(1, form.ColumnCount - 1));
     }
 
     private static Button CreateButton(string text, bool primary, int width)
@@ -219,6 +309,5 @@ internal sealed class ToolsCenterForm : Form
         return button;
     }
 
-    private void AppendSoftware(string text) => _softwareLog.AppendText(text.Trim() + Environment.NewLine + Environment.NewLine);
-    private void AppendDrive(string text) => _driveLog.AppendText(text.Trim() + Environment.NewLine + Environment.NewLine);
+    private static void Append(TextBox box, string text) => box.AppendText(text.Trim() + Environment.NewLine + Environment.NewLine);
 }
