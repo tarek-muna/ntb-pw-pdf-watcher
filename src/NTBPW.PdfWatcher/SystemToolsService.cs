@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 namespace NTBPW.PdfWatcher;
 
 internal sealed record ToolCommand(string Name, string FileName, string Arguments, bool RequiresAdmin = false);
+internal sealed record ToolCommandResult(bool Success, int ExitCode, string Output, string Error);
 
 internal static class SystemToolsService
 {
@@ -18,7 +19,7 @@ internal static class SystemToolsService
         new ToolCommand("Temporäre Dateien öffnen", "explorer.exe", "%TEMP%")
     };
 
-    public static async Task<CommandResult> RunAsync(ToolCommand command, CancellationToken token, Action<string> output)
+    public static async Task<ToolCommandResult> RunAsync(ToolCommand command, CancellationToken token, Action<string> output)
     {
         var psi = new ProcessStartInfo(command.FileName, command.Arguments)
         {
@@ -35,7 +36,7 @@ internal static class SystemToolsService
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         await process.WaitForExitAsync(token);
-        return new CommandResult(process.ExitCode == 0, process.ExitCode, string.Empty, string.Empty);
+        return new ToolCommandResult(process.ExitCode == 0, process.ExitCode, string.Empty, string.Empty);
     }
 
     public static string BuildSystemReport()
