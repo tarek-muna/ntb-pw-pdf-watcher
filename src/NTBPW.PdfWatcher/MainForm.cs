@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace NTBPW.PdfWatcher;
 
@@ -117,11 +117,11 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 10,
+            RowCount = 11,
             BackColor = sidebar.BackColor
         };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 86));
-        for (var i = 1; i <= 7; i++)
+        for (var i = 1; i <= 8; i++)
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
@@ -165,6 +165,7 @@ internal sealed class MainForm : Form
         layout.Controls.Add(CreateNavButton("⚙  Einstellungen", OpenSettings), 0, 5);
         layout.Controls.Add(CreateNavButton("≡  Protokoll", ShowLogViewer), 0, 6);
         layout.Controls.Add(CreateNavButton("↻  Updates", OpenUpdateDialog), 0, 7);
+        layout.Controls.Add(CreateNavButton("▦  Tools Center", OpenToolsCenter), 0, 8);
 
         var footer = new Label
         {
@@ -174,11 +175,11 @@ internal sealed class MainForm : Form
             TextAlign = ContentAlignment.BottomLeft,
             Font = new Font("Segoe UI", 8F)
         };
-        layout.Controls.Add(footer, 0, 8);
+        layout.Controls.Add(footer, 0, 9);
 
         var exit = CreateNavButton("⏻  Beenden", ExitApp);
         exit.ForeColor = Color.FromArgb(255, 205, 205);
-        layout.Controls.Add(exit, 0, 9);
+        layout.Controls.Add(exit, 0, 10);
         return sidebar;
     }
 
@@ -504,6 +505,13 @@ internal sealed class MainForm : Form
         _appIcon.Dispose();
     }
 
+    private void OpenToolsCenter()
+    {
+        using var form = new ToolsCenterForm(_appIcon);
+        form.ShowDialog(this);
+    }
+
     private void ExitApp() => RequestExit?.Invoke(this, EventArgs.Empty);
 }
+
 
