@@ -75,7 +75,7 @@ internal sealed class ProcessingServices
     {
         foreach (var rule in rules.Where(r => r.Enabled))
         {
-            if (!string.IsNullOrWhiteSpace(rule.FileNameContains) && !Path.GetFileName(source).Contains(rule.FileNameContains, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!MatchesFileName(Path.GetFileName(source), rule.FileNameContains)) continue;
             if (!string.IsNullOrWhiteSpace(rule.ClassificationEquals) && !classification.Equals(rule.ClassificationEquals, StringComparison.OrdinalIgnoreCase)) continue;
             if (string.IsNullOrWhiteSpace(rule.DestinationFolder)) continue;
             try
@@ -88,6 +88,13 @@ internal sealed class ProcessingServices
             catch (Exception ex) { AppLogger.Write($"Ablageregel '{rule.Name}' fehlgeschlagen: {ex.Message}"); }
         }
         return source;
+    }
+
+    // Leerer Filter passt auf alle Dateien; mehrere Begriffe werden mit Semikolon getrennt (ODER).
+    internal static bool MatchesFileName(string fileName, string filter)
+    {
+        var terms = filter.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return terms.Length == 0 || terms.Any(t => fileName.Contains(t, StringComparison.OrdinalIgnoreCase));
     }
 
     public void CloudSync(string source)
