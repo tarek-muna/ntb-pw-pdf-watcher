@@ -134,12 +134,28 @@ internal static class UpdateService
         if (string.IsNullOrWhiteSpace(expectedHash) || expectedHash.Length != 64)
             throw new InvalidOperationException("Die SHA-256-Prüfsummendatei hat ein ungültiges Format.");
 
-        await using var file = File.OpenRead(installerPath);
-        var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(file, cancellationToken));
+        string actualHash;
+        await using (var file = File.OpenRead(installerPath))
+            actualHash = Convert.ToHexString(await SHA256.HashDataAsync(file, cancellationToken));
         if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
         {
             File.Delete(installerPath);
             throw new InvalidOperationException("Die SHA-256-Prüfung ist fehlgeschlagen. Das Update wurde verworfen.");
+        }
+
+        // Ist die laufende Version signiert, muss das Update vom selben Herausgeber signiert sein.
+        // Unsignierte Vorversionen pruefen nur die Pruefsumme, damit der Umstieg auf signierte Releases klappt.
+        var expectedSigner = SignatureVerifier.GetTrustedSigner(Environment.ProcessPath);
+        if (expectedSigner is not null)
+        {
+            var actualSigner = SignatureVerifier.GetTrustedSigner(installerPath);
+            if (!string.Equals(actualSigner, expectedSigner, StringComparison.Ordinal))
+            {
+                File.Delete(installerPath);
+                throw new InvalidOperationException(actualSigner is null
+                    ? "Das Update ist nicht gültig signiert und wurde verworfen."
+                    : $"Das Update ist von „{actualSigner}“ signiert statt von „{expectedSigner}“ und wurde verworfen.");
+            }
         }
 
         progress?.Report(100);

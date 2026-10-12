@@ -7,7 +7,7 @@ internal sealed class SettingsForm : Form
 {
     private const string DefaultRepository = "tarek-muna/ntb-pw-pdf-watcher";
 
-    private readonly AppConfig _working;
+    private AppConfig _working;
 
     private readonly CheckBox _autoStart = new() { Text = "Mit Windows starten", AutoSize = true };
     private readonly CheckBox _startMinimized = new() { Text = "Beim Autostart minimiert starten", AutoSize = true };
@@ -153,8 +153,67 @@ internal sealed class SettingsForm : Form
         actions.Controls.Add(openData);
         actions.Controls.Add(reset);
         AddRow(panel, "Werkzeuge", actions);
+
+        var transfer = new FlowLayoutPanel { AutoSize = true };
+        var export = new Button { Text = "Exportieren …", Width = 130, Height = 34 };
+        export.Click += (_, _) => ExportConfiguration();
+        var import = new Button { Text = "Importieren …", Width = 130, Height = 34 };
+        import.Click += (_, _) => ImportConfiguration();
+        transfer.Controls.Add(export);
+        transfer.Controls.Add(import);
+        AddRow(panel, "Konfiguration", transfer);
+        AddRow(panel, "", new Label
+        {
+            Text = "Exportiert Einstellungen, Scanner-Profile und Ablageregeln – ohne Passwörter.",
+            AutoSize = true,
+            MaximumSize = new Size(430, 0),
+            ForeColor = Color.FromArgb(103, 116, 133)
+        });
         page.Controls.Add(panel);
         return page;
+    }
+
+    private void ExportConfiguration()
+    {
+        // Aktuelle Eingaben des Dialogs mit exportieren.
+        if (!ApplyInputs()) return;
+        using var dialog = new SaveFileDialog
+        {
+            Filter = "PDF-Watcher-Konfiguration (*.json)|*.json",
+            FileName = $"PDF-Watcher-Konfiguration-{DateTime.Now:yyyy-MM-dd}.json"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            ConfigStore.Export(_working, dialog.FileName);
+            MessageBox.Show(this, "Die Konfiguration wurde exportiert.", "Konfiguration", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Export fehlgeschlagen", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void ImportConfiguration()
+    {
+        using var dialog = new OpenFileDialog { Filter = "PDF-Watcher-Konfiguration (*.json)|*.json|Alle Dateien (*.*)|*.*" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            var imported = ConfigStore.Import(dialog.FileName, _working);
+            if (MessageBox.Show(this,
+                    $"{imported.Profiles.Count} Scanner-Profil(e) und {imported.Rules.Count} Ablageregel(n) importieren?\n" +
+                    "Alle aktuellen Einstellungen, Profile und Regeln werden ersetzt. Gespeicherte Passwörter bleiben erhalten.",
+                    "Konfiguration importieren", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+            _working = imported;
+            LoadValues();
+            MessageBox.Show(this, "Importiert. Mit „Speichern“ wird die Konfiguration übernommen.", "Konfiguration", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(this, ex.Message, "Import fehlgeschlagen", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private static TabPage NewPage(string title) => new(title) { Padding = new Padding(8) };
@@ -201,15 +260,23 @@ internal sealed class SettingsForm : Form
 
     private void SaveAndClose()
     {
+        if (!ApplyInputs()) return;
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    // Prueft die Eingaben und uebernimmt sie in die Arbeitskopie.
+    private bool ApplyInputs()
+    {
         if (_enableCloud.Checked && string.IsNullOrWhiteSpace(_cloudFolder.Text))
         {
             MessageBox.Show(this, "Bitte einen Zielordner für die Kopie angeben.", "Einstellungen", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            return false;
         }
         if (_enableEmail.Checked && (string.IsNullOrWhiteSpace(_smtpHost.Text) || string.IsNullOrWhiteSpace(_emailFrom.Text) || string.IsNullOrWhiteSpace(_emailTo.Text)))
         {
             MessageBox.Show(this, "Für E-Mail-Benachrichtigungen werden SMTP-Server, Absender und Empfänger benötigt.", "Einstellungen", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            return false;
         }
 
         _working.AutoStart = _autoStart.Checked;
@@ -227,9 +294,7 @@ internal sealed class SettingsForm : Form
         _working.GitHubRepository = UpdateService.NormalizeRepository(_updateRepository.Text);
         if (string.IsNullOrWhiteSpace(_working.GitHubRepository))
             _working.GitHubRepository = DefaultRepository;
-
-        DialogResult = DialogResult.OK;
-        Close();
+        return true;
     }
 
     private void ResetDefaults()

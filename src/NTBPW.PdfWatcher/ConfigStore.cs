@@ -92,4 +92,36 @@ internal static class ConfigStore
         Directory.CreateDirectory(AppConfig.DataDirectory);
         File.WriteAllText(AppConfig.HistoryPath, JsonSerializer.Serialize(history.TakeLast(MaxHistoryEntries), Options));
     }
+
+    // Export fuer Sicherung oder Uebertragung auf einen anderen PC. Zugangsdaten werden nicht
+    // exportiert: Sie sind per DPAPI an den Windows-Benutzer gebunden und anderswo unbrauchbar.
+    public static void Export(AppConfig config, string path)
+    {
+        var copy = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(config, Options), Options) ?? new AppConfig();
+        copy.SmtpPassword = "";
+        copy.AiApiKey = "";
+        File.WriteAllText(path, JsonSerializer.Serialize(copy, Options));
+    }
+
+    // Liest eine exportierte Konfiguration und uebernimmt die Zugangsdaten aus der aktuellen Konfiguration.
+    public static AppConfig Import(string path, AppConfig current)
+    {
+        AppConfig? imported;
+        try
+        {
+            imported = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(path), Options);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Die Datei ist keine gültige Konfiguration: " + ex.Message, ex);
+        }
+        if (imported is null || imported.Profiles.Count == 0)
+            throw new InvalidDataException("Die Datei enthält keine Scanner-Profile.");
+
+        imported.Profiles.RemoveAll(p => p is null);
+        imported.Rules.RemoveAll(r => r is null);
+        if (string.IsNullOrEmpty(imported.SmtpPasswordProtected)) imported.SmtpPasswordProtected = current.SmtpPasswordProtected;
+        if (string.IsNullOrEmpty(imported.AiApiKeyProtected)) imported.AiApiKeyProtected = current.AiApiKeyProtected;
+        return imported;
+    }
 }

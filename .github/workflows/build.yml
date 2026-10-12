@@ -55,11 +55,31 @@ jobs:
         shell: powershell
         run: choco install innosetup --yes --no-progress
 
-      - name: Setup erstellen
+      - name: Anwendung veröffentlichen
         shell: powershell
         run: |
           dotnet publish .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\publish
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Signatur mit Test-Zertifikat prüfen
+        # Prueft den Weg "eigenes Zertifikat" (tools/sign-with-pfx.ps1) mit einem Wegwerf-Zertifikat,
+        # damit signierte Builds schon vor der echten Einrichtung getestet sind.
+        shell: powershell
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN="NTB-PW Build-Test"' -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy Exportable
+          $password = [guid]::NewGuid().ToString()
+          $pfx = Join-Path $env:RUNNER_TEMP 'test.pfx'
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString $password -AsPlainText -Force) | Out-Null
+          $env:SIGNING_PFX_BASE64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($pfx))
+          $env:SIGNING_PFX_PASSWORD = $password
+          .\tools\sign-with-pfx.ps1 -Files '.\publish\NTB-PW PDF-Watcher.exe' -TrustOnThisMachine
+          $sig = Get-AuthenticodeSignature '.\publish\NTB-PW PDF-Watcher.exe'
+          if ($sig.Status -ne 'Valid') { throw "Signatur ungültig: $($sig.Status) $($sig.StatusMessage)" }
+          Write-Host "Signiert von $($sig.SignerCertificate.Subject)"
+
+      - name: Setup erstellen
+        shell: powershell
+        run: |
           $version = ([xml](Get-Content .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj)).Project.PropertyGroup.Version
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" ".\installer\NTB-PW-PDF-Watcher.iss"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

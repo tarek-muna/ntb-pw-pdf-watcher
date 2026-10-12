@@ -13,6 +13,8 @@ internal sealed class MultiWatcherService : IDisposable
     private readonly Dictionary<string, string> _profileStates = [];
     private string _lastReportedState = "";
     public event Action<string>? StatusChanged;
+    // Status eines einzelnen Profils ("active" / "disconnected"); nur bei Aenderung.
+    public event Action<string, string>? ProfileStatusChanged;
     public event Action<ProcessingRecord>? Processed;
     public bool IsRunning => _tokens.Count > 0;
 
@@ -137,12 +139,15 @@ internal sealed class MultiWatcherService : IDisposable
     private void SetProfileState(WatchProfile profile, string state, CancellationToken token)
     {
         string aggregate;
+        bool changed;
         lock (_profileStates)
         {
             if (token.IsCancellationRequested) return;
+            changed = !_profileStates.TryGetValue(profile.Id, out var previous) || previous != state;
             _profileStates[profile.Id] = state;
             aggregate = _profileStates.Values.Any(s => s == "disconnected") ? "disconnected" : "active";
         }
+        if (changed) ProfileStatusChanged?.Invoke(profile.Id, state);
         ReportState(aggregate);
     }
 

@@ -8,11 +8,21 @@ on:
 
 permissions:
   contents: write
+  id-token: write # Anmeldung bei Azure per OpenID Connect (Code-Signatur)
 
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 30
+    # Die Azure-Vertrauensstellung ist an diese Umgebung gebunden (siehe docs/CODE-SIGNING.md).
+    environment: release
+    env:
+      # Signatur ist optional (siehe docs/CODE-SIGNING.md):
+      #  - Azure Artifact Signing, wenn die Variable ARTIFACT_SIGNING_ACCOUNT gesetzt ist,
+      #  - sonst eigenes Zertifikat, wenn das Secret SIGNING_PFX_BASE64 gesetzt ist,
+      #  - sonst unsigniert.
+      AZURE_SIGNING: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' }}
+      PFX_SIGNING: ${{ vars.ARTIFACT_SIGNING_ACCOUNT == '' && secrets.SIGNING_PFX_BASE64 != '' }}
 
     steps:
       - name: Repository auschecken
@@ -52,9 +62,71 @@ jobs:
           }
           "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Bei Azure anmelden
+        if: env.AZURE_SIGNING == 'true'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Anwendung signieren
+        if: env.AZURE_SIGNING == 'true'
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\publish
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Anwendung signieren (eigenes Zertifikat)
+        if: env.PFX_SIGNING == 'true'
+        shell: powershell
+        env:
+          SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: .\tools\sign-with-pfx.ps1 -Files '.\publish\NTB-PW PDF-Watcher.exe' -TrustOnThisMachine
+
       - name: Setup erstellen
         shell: powershell
         run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:APP_VERSION" ".\installer\NTB-PW-PDF-Watcher.iss"'
+
+      - name: Setup signieren (eigenes Zertifikat)
+        if: env.PFX_SIGNING == 'true'
+        shell: powershell
+        env:
+          SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $setup = Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe | Select-Object -First 1
+          .\tools\sign-with-pfx.ps1 -Files $setup.FullName
+
+      - name: Setup signieren
+        if: env.AZURE_SIGNING == 'true'
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Signatur prüfen
+        if: env.AZURE_SIGNING == 'true' || env.PFX_SIGNING == 'true'
+        shell: powershell
+        run: |
+          foreach ($file in @(Get-Item '.\publish\NTB-PW PDF-Watcher.exe') + @(Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe)) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            if ($sig.Status -ne 'Valid') { throw "$($file.Name): Signatur ungültig ($($sig.Status))." }
+            Write-Host "$($file.Name): signiert von $($sig.SignerCertificate.Subject)"
+          }
 
       - name: SHA-256 erzeugen
         shell: powershell
