@@ -28,6 +28,34 @@ Ein Release muss diese beiden Assets enthalten:
 
 Der integrierte Updater lädt das Setup, prüft SHA-256 und startet anschließend den Installer.
 
+## Interne Installation per winget
+
+Der PDF-Watcher ist nicht im öffentlichen winget-Verzeichnis. Für die interne Verteilung erzeugt
+`winget\Install-PDFWatcher.ps1` die winget-Manifeste direkt aus dem GitHub-Release
+(Setup-URL und SHA-256) und installiert damit.
+
+Einmalig pro Rechner als Administrator lokale Manifeste erlauben:
+
+```bat
+winget settings --enable LocalManifestFiles
+```
+
+Danach installieren (neueste Version oder eine bestimmte):
+
+```bat
+winget\Install-PDFWatcher.cmd
+winget\Install-PDFWatcher.cmd -Version 5.0.1
+```
+
+Nur Manifeste erzeugen, z. B. für Intune oder `winget validate`:
+
+```powershell
+.\winget\Install-PDFWatcher.ps1 -OutputPath C:\Temp\ntbpw-manifest
+```
+
+Die Paketkennung lautet `NetzTechnikBuero.NTBPWPDFWatcher`. Updates kommen weiterhin über den
+integrierten Updater oder durch erneutes Ausführen des Skripts.
+
 ## Lokal erstellen
 
 1. .NET 8 SDK installieren.
