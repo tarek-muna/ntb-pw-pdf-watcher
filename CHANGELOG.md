@@ -4,6 +4,11 @@ Alle wesentlichen Änderungen am NTB-PW PDF-Watcher werden hier dokumentiert.
 
 ## [5.1.0] - unveröffentlicht
 
+### Hinzugefügt
+- Neuer Bereich „Ablageregeln“ in der Seitenleiste: PDFs anhand des Dateinamens automatisch in Zielordner verschieben oder kopieren. Mehrere Suchbegriffe per Semikolon, Reihenfolge per Hoch/Runter, die erste passende Regel gilt.
+- PDF-Vorschau über Microsoft Edge WebView2 statt des veralteten Internet-Explorer-Steuerelements.
+- Protokoll wird ab 5 MB rotiert (`PDF-Watcher.log.1`).
+
 ### Geändert
 - SMTP-Passwort und KI-Schlüssel werden mit Windows-DPAPI verschlüsselt gespeichert. Klartext-Werte aus 5.0.x werden beim ersten Start automatisch verschlüsselt übernommen.
 - Scanner-Profile werden nur noch an einer Stelle (Seitenleiste „Scanner“) bearbeitet; der doppelte Reiter in den Einstellungen entfällt.

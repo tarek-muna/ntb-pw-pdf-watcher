@@ -124,12 +124,12 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 10,
+            RowCount = 11,
             BackColor = sidebar.BackColor
         };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 86));
-        for (var i = 1; i <= 7; i++)
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        for (var i = 1; i <= 8; i++)
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         sidebar.Controls.Add(layout);
@@ -167,11 +167,12 @@ internal sealed class MainForm : Form
 
         layout.Controls.Add(CreateNavButton("⌂  Dashboard", null, true), 0, 1);
         layout.Controls.Add(CreateNavButton("▣  Scanner", EditProfiles), 0, 2);
-        layout.Controls.Add(CreateNavButton("▤  Historie", ShowHistory), 0, 3);
-        layout.Controls.Add(CreateNavButton("▥  Statistik", () => new StatsForm(_history).ShowDialog(this)), 0, 4);
-        layout.Controls.Add(CreateNavButton("⚙  Einstellungen", OpenSettings), 0, 5);
-        layout.Controls.Add(CreateNavButton("≡  Protokoll", ShowLogViewer), 0, 6);
-        layout.Controls.Add(CreateNavButton("↻  Updates", OpenUpdateDialog), 0, 7);
+        layout.Controls.Add(CreateNavButton("⇢  Ablageregeln", EditRules), 0, 3);
+        layout.Controls.Add(CreateNavButton("▤  Historie", ShowHistory), 0, 4);
+        layout.Controls.Add(CreateNavButton("▥  Statistik", () => new StatsForm(_history).ShowDialog(this)), 0, 5);
+        layout.Controls.Add(CreateNavButton("⚙  Einstellungen", OpenSettings), 0, 6);
+        layout.Controls.Add(CreateNavButton("≡  Protokoll", ShowLogViewer), 0, 7);
+        layout.Controls.Add(CreateNavButton("↻  Updates", OpenUpdateDialog), 0, 8);
 
         var footer = new Label
         {
@@ -181,11 +182,11 @@ internal sealed class MainForm : Form
             TextAlign = ContentAlignment.BottomLeft,
             Font = new Font("Segoe UI", 8F)
         };
-        layout.Controls.Add(footer, 0, 8);
+        layout.Controls.Add(footer, 0, 9);
 
         var exit = CreateNavButton("⏻  Beenden", ExitApp);
         exit.ForeColor = Color.FromArgb(255, 205, 205);
-        layout.Controls.Add(exit, 0, 9);
+        layout.Controls.Add(exit, 0, 10);
         return sidebar;
     }
 
@@ -428,6 +429,25 @@ internal sealed class MainForm : Form
         if (form.ShowDialog(this) == DialogResult.OK)
         {
             _config.Profiles = copy;
+            SaveAndRestart();
+        }
+    }
+
+    private void EditRules()
+    {
+        var copy = _config.Rules.Select(r => new FilingRule
+        {
+            Name = r.Name,
+            Enabled = r.Enabled,
+            FileNameContains = r.FileNameContains,
+            ClassificationEquals = r.ClassificationEquals,
+            DestinationFolder = r.DestinationFolder,
+            CopyInsteadOfMove = r.CopyInsteadOfMove
+        }).ToList();
+        using var form = new RulesForm(copy, _appIcon);
+        if (form.ShowDialog(this) == DialogResult.OK)
+        {
+            _config.Rules = copy;
             SaveAndRestart();
         }
     }

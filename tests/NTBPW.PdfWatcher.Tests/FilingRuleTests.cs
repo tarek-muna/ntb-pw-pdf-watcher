@@ -4,6 +4,35 @@ public sealed class FilingRuleTests
 {
     private static readonly ProcessingServices Services = new(new AppConfig());
 
+    [Theory]
+    [InlineData("Rechnung-4711.pdf", "", true)]
+    [InlineData("Rechnung-4711.pdf", "rechnung", true)]
+    [InlineData("Invoice-12.pdf", "Rechnung; Invoice", true)]
+    [InlineData("Lieferschein.pdf", "Rechnung;Invoice", false)]
+    [InlineData("Lieferschein.pdf", " ; ", true)]
+    public void Dateinamenfilter(string fileName, string filter, bool expected)
+    {
+        Assert.Equal(expected, ProcessingServices.MatchesFileName(fileName, filter));
+    }
+
+    [Fact]
+    public void Erste_passende_Regel_gewinnt()
+    {
+        using var source = new TempDirectory();
+        using var first = new TempDirectory();
+        using var second = new TempDirectory();
+        var file = source.File("Rechnung.pdf");
+        File.WriteAllBytes(file, TestPdf.Bytes);
+
+        var result = Services.ApplyRules(file, "",
+        [
+            new FilingRule { FileNameContains = "Rechnung", DestinationFolder = first.Path },
+            new FilingRule { DestinationFolder = second.Path }
+        ]);
+
+        Assert.Equal(first.File("Rechnung.pdf"), result);
+    }
+
     [Fact]
     public void Passende_Regel_verschiebt_die_Datei()
     {
