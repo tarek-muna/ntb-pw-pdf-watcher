@@ -6,6 +6,7 @@ internal sealed class MultiWatcherService : IDisposable
 {
     // Toleranz fuer leicht abweichende Uhren (z. B. \\tsclient-Pfade vom RDP-Client).
     private static readonly TimeSpan ClockTolerance = TimeSpan.FromSeconds(5);
+    private const int MaxStoredTextLength = 4000;
 
     private AppConfig _config;
     private readonly List<CancellationTokenSource> _tokens = [];
@@ -110,10 +111,10 @@ internal sealed class MultiWatcherService : IDisposable
     private async Task ProcessFile(AppConfig config, WatchProfile profile, string file, CancellationToken token)
     {
         var services = new ProcessingServices(config);
-        var ocr = await services.RunOcrAsync(file);
+        var ocr = await services.RunOcrAsync(file, token);
         var classification = await services.ClassifyAsync(Path.GetFileName(file), ocr);
         token.ThrowIfCancellationRequested();
-        var final = services.ApplyRules(file, classification, config.Rules);
+        var final = services.ApplyRules(file, classification, config.Rules, ocr);
         services.CloudSync(final);
         var result = "OK";
         if (profile.OpenPdf && File.Exists(final))
@@ -126,7 +127,9 @@ internal sealed class MultiWatcherService : IDisposable
             }
         }
         if (profile.EmailNotification) await services.SendEmailAsync("Neue PDF: " + Path.GetFileName(final), $"Profil: {profile.Name}\nDatei: {final}\nKlassifizierung: {classification}");
-        var record = new ProcessingRecord { Profile = profile.Name, SourceFile = final, Classification = classification, OcrText = ocr, Result = result };
+        // Erkannten Text gekuerzt in der Historie ablegen (fuer die Suche), damit history.json klein bleibt.
+        var storedText = ocr.Length > MaxStoredTextLength ? ocr[..MaxStoredTextLength] : ocr;
+        var record = new ProcessingRecord { Profile = profile.Name, SourceFile = final, Classification = classification, OcrText = storedText, Result = result };
         AppLogger.Write($"{profile.Name}: PDF verarbeitet: {final}");
         Processed?.Invoke(record);
     }

@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -9,10 +10,10 @@
     <Win32Resource></Win32Resource>
     <AssemblyName>NTB-PW PDF-Watcher</AssemblyName>
     <RootNamespace>NTBPW.PdfWatcher</RootNamespace>
-    <Version>5.1.0</Version>
-    <AssemblyVersion>5.1.0.0</AssemblyVersion>
-    <FileVersion>5.1.0.0</FileVersion>
-    <InformationalVersion>5.1.0</InformationalVersion>
+    <Version>5.2.0</Version>
+    <AssemblyVersion>5.2.0.0</AssemblyVersion>
+    <FileVersion>5.2.0.0</FileVersion>
+    <InformationalVersion>5.2.0</InformationalVersion>
     <Company>Netz, Technik, Büro GbR</Company>
     <Product>NTB-PW PDF-Watcher Professional</Product>
     <Copyright>© Tarek Muna 2026</Copyright>

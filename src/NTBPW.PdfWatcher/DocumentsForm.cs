@@ -6,7 +6,7 @@ internal sealed class DocumentsForm : Form
 {
     private readonly IReadOnlyList<ProcessingRecord> _source;
     private readonly Icon _appIcon;
-    private readonly TextBox _search = new() { PlaceholderText = "Dateiname, Profil, Ergebnis oder Klassifikation suchen …" };
+    private readonly TextBox _search = new() { PlaceholderText = "Dateiname, Profil, Ergebnis oder erkannten Text suchen …" };
     private readonly ComboBox _period = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly DataGridView _grid = new();
     private readonly Label _count = new() { AutoSize = true };
@@ -209,7 +209,8 @@ internal sealed class DocumentsForm : Form
                || record.SourceFile.Contains(query, StringComparison.OrdinalIgnoreCase)
                || record.Profile.Contains(query, StringComparison.OrdinalIgnoreCase)
                || record.Result.Contains(query, StringComparison.OrdinalIgnoreCase)
-               || record.Classification.Contains(query, StringComparison.OrdinalIgnoreCase);
+               || record.Classification.Contains(query, StringComparison.OrdinalIgnoreCase)
+               || record.OcrText.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
     private ProcessingRecord? SelectedRecord()

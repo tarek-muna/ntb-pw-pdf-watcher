@@ -12,33 +12,31 @@ internal sealed class ProcessingServices
     private readonly AppConfig _config;
     public ProcessingServices(AppConfig config) => _config = config;
 
-    public async Task<string> RunOcrAsync(string pdf)
+    private static readonly TimeSpan OcrTimeout = TimeSpan.FromMinutes(2);
+
+    // Texterkennung kostet Zeit und wird nur ausgefuehrt, wenn das Ergebnis auch gebraucht wird.
+    public bool NeedsOcr =>
+        _config.Rules.Any(r => r.Enabled && !string.IsNullOrWhiteSpace(r.ContentContains)) ||
+        (_config.EnableAiClassification && !string.IsNullOrWhiteSpace(_config.AiEndpoint));
+
+    public async Task<string> RunOcrAsync(string pdf, CancellationToken token = default)
     {
-        if (!_config.EnableOcr || string.IsNullOrWhiteSpace(_config.TesseractExe) || !File.Exists(_config.TesseractExe)) return "";
-        var tempBase = Path.Combine(Path.GetTempPath(), "ntbpw_" + Guid.NewGuid().ToString("N"));
+        if (!NeedsOcr) return "";
         try
         {
-            // stderr wird nicht umgeleitet: ungelesen kann der Puffer volllaufen und Tesseract blockieren.
-            var psi = new ProcessStartInfo(_config.TesseractExe) { UseShellExecute = false, CreateNoWindow = true };
-            psi.ArgumentList.Add(pdf);
-            psi.ArgumentList.Add(tempBase);
-            psi.ArgumentList.Add("-l");
-            psi.ArgumentList.Add(string.IsNullOrWhiteSpace(_config.TesseractLanguage) ? "deu+eng" : _config.TesseractLanguage.Trim());
-            using var p = Process.Start(psi);
-            if (p is null) return "";
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            try { await p.WaitForExitAsync(timeout.Token); }
-            catch (OperationCanceledException)
-            {
-                try { p.Kill(true); } catch { }
-                AppLogger.Write("OCR-Fehler: Tesseract hat nach 2 Minuten nicht geantwortet.");
-                return "";
-            }
-            var txt = tempBase + ".txt";
-            return File.Exists(txt) ? await File.ReadAllTextAsync(txt) : "";
+            return await WindowsOcr.ExtractTextAsync(pdf, token: token).WaitAsync(OcrTimeout, token);
         }
-        catch (Exception ex) { AppLogger.Write("OCR-Fehler: " + ex.Message); return ""; }
-        finally { try { File.Delete(tempBase + ".txt"); } catch { } }
+        catch (TimeoutException)
+        {
+            AppLogger.Write($"OCR-Fehler: Texterkennung für {Path.GetFileName(pdf)} dauerte länger als 2 Minuten.");
+            return "";
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            AppLogger.Write($"OCR-Fehler bei {Path.GetFileName(pdf)}: {ex.Message}");
+            return "";
+        }
     }
 
     public async Task<string> ClassifyAsync(string fileName, string ocrText)
@@ -71,11 +69,14 @@ internal sealed class ProcessingServices
         catch (Exception ex) { AppLogger.Write("E-Mail konnte nicht gesendet werden: " + ex.Message); }
     }
 
-    public string ApplyRules(string source, string classification, IEnumerable<FilingRule> rules)
+    public string ApplyRules(string source, string classification, IEnumerable<FilingRule> rules, string content = "")
     {
+        var normalizedContent = NormalizeWhitespace(content);
         foreach (var rule in rules.Where(r => r.Enabled))
         {
-            if (!MatchesFileName(Path.GetFileName(source), rule.FileNameContains)) continue;
+            // Dateiname und Inhalt muessen beide passen, sofern beide Filter gesetzt sind.
+            if (!MatchesTerms(Path.GetFileName(source), rule.FileNameContains)) continue;
+            if (!MatchesTerms(normalizedContent, NormalizeWhitespace(rule.ContentContains))) continue;
             if (!string.IsNullOrWhiteSpace(rule.ClassificationEquals) && !classification.Equals(rule.ClassificationEquals, StringComparison.OrdinalIgnoreCase)) continue;
             if (string.IsNullOrWhiteSpace(rule.DestinationFolder)) continue;
             try
@@ -90,12 +91,16 @@ internal sealed class ProcessingServices
         return source;
     }
 
-    // Leerer Filter passt auf alle Dateien; mehrere Begriffe werden mit Semikolon getrennt (ODER).
-    internal static bool MatchesFileName(string fileName, string filter)
+    // Leerer Filter passt immer; mehrere Begriffe werden mit Semikolon getrennt (ODER).
+    internal static bool MatchesTerms(string text, string filter)
     {
         var terms = filter.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return terms.Length == 0 || terms.Any(t => fileName.Contains(t, StringComparison.OrdinalIgnoreCase));
+        return terms.Length == 0 || terms.Any(t => text.Contains(t, StringComparison.OrdinalIgnoreCase));
     }
+
+    // OCR liefert Zeilenumbrueche und Mehrfach-Leerzeichen; fuer den Vergleich zusammenfassen.
+    internal static string NormalizeWhitespace(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     public void CloudSync(string source)
     {

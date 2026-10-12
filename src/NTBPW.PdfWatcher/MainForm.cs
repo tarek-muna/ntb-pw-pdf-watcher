@@ -440,6 +440,7 @@ internal sealed class MainForm : Form
             Name = r.Name,
             Enabled = r.Enabled,
             FileNameContains = r.FileNameContains,
+            ContentContains = r.ContentContains,
             ClassificationEquals = r.ClassificationEquals,
             DestinationFolder = r.DestinationFolder,
             CopyInsteadOfMove = r.CopyInsteadOfMove
