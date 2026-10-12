@@ -13,6 +13,8 @@ internal sealed class ProfilesForm : Form
     private readonly CheckBox _desktopNotification = new() { Text = "Windows-Benachrichtigung anzeigen" };
     private readonly CheckBox _emailNotification = new() { Text = "E-Mail-Benachrichtigung senden" };
     private bool _loading;
+    // Index des Profils, dessen Werte gerade im Editor stehen.
+    private int _currentIndex = -1;
 
     public ProfilesForm(List<WatchProfile> profiles)
     {
@@ -258,7 +260,12 @@ internal sealed class ProfilesForm : Form
 
     private void LoadSelectedProfile()
     {
-        if (_loading || _profileList.SelectedIndex < 0 || _profileList.SelectedIndex >= _profiles.Count)
+        if (_loading) return;
+
+        // Zuerst die Eingaben des bisher angezeigten Profils sichern, sonst gehen sie beim Wechsel verloren.
+        SaveCurrentProfile();
+        _currentIndex = _profileList.SelectedIndex;
+        if (_currentIndex < 0 || _currentIndex >= _profiles.Count)
             return;
 
         _loading = true;
@@ -276,10 +283,10 @@ internal sealed class ProfilesForm : Form
 
     private void SaveCurrentProfile()
     {
-        if (_loading || _profileList.SelectedIndex < 0 || _profileList.SelectedIndex >= _profiles.Count)
+        if (_loading || _currentIndex < 0 || _currentIndex >= _profiles.Count)
             return;
 
-        var profile = _profiles[_profileList.SelectedIndex];
+        var profile = _profiles[_currentIndex];
         profile.Name = string.IsNullOrWhiteSpace(_name.Text) ? "Scanner" : _name.Text.Trim();
         profile.Folder = _folder.Text.Trim();
         profile.Enabled = _enabled.Checked;
@@ -314,6 +321,7 @@ internal sealed class ProfilesForm : Form
             return;
 
         _profiles.RemoveAt(index);
+        _currentIndex = -1;
         RefreshProfileList();
     }
 

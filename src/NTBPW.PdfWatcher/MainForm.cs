@@ -26,6 +26,7 @@ internal sealed class MainForm : Form
 
     public event EventHandler? RequestHideToTray;
     public event EventHandler? RequestExit;
+    public event Action<string, string>? NotificationRequested;
 
     public MainForm(Icon appIcon)
     {
@@ -44,15 +45,14 @@ internal sealed class MainForm : Form
         RefreshProfiles();
         RefreshStats();
 
-        AppLogger.Message += line =>
-        {
-            if (!IsDisposed && IsHandleCreated)
-                BeginInvoke(() => _log.AppendText(line + Environment.NewLine));
-        };
+        // Fenster-Handle sofort erzeugen, damit Ereignisse der Ueberwachung auch dann
+        // zugestellt werden koennen, wenn das Fenster (Autostart --minimized) nie angezeigt wurde.
+        _ = Handle;
+
+        AppLogger.Message += line => PostToUi(() => _log.AppendText(line + Environment.NewLine));
 
         Shown += async (_, _) =>
         {
-            _watcher.Start();
             if (_config.CheckForUpdates && !_automaticUpdateCheckStarted)
             {
                 _automaticUpdateCheckStarted = true;
@@ -79,9 +79,16 @@ internal sealed class MainForm : Form
     private MultiWatcherService NewWatcher()
     {
         var watcher = new MultiWatcherService(_config);
-        watcher.StatusChanged += state => BeginInvoke(() => SetStatus(state));
-        watcher.Processed += record => BeginInvoke(() => OnProcessed(record));
+        watcher.StatusChanged += state => PostToUi(() => SetStatus(state));
+        watcher.Processed += record => PostToUi(() => OnProcessed(record));
         return watcher;
+    }
+
+    private void PostToUi(Action action)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(action); }
+        catch (InvalidOperationException) { }
     }
 
     private void BuildUi()
@@ -372,10 +379,13 @@ internal sealed class MainForm : Form
     private void OnProcessed(ProcessingRecord record)
     {
         _history.Add(record);
-        ConfigStore.SaveHistory(_history);
+        if (_history.Count > ConfigStore.MaxHistoryEntries)
+            _history.RemoveRange(0, _history.Count - ConfigStore.MaxHistoryEntries);
+        try { ConfigStore.SaveHistory(_history); }
+        catch (Exception ex) { AppLogger.Write("Historie konnte nicht gespeichert werden: " + ex.Message); }
         _last.Text = Path.GetFileName(record.SourceFile);
         if (_config.Profiles.FirstOrDefault(p => p.Name == record.Profile)?.DesktopNotification == true)
-            AppLogger.Write($"Desktop-Hinweis: PDF verarbeitet: {Path.GetFileName(record.SourceFile)}");
+            NotificationRequested?.Invoke($"Neue PDF ({record.Profile})", Path.GetFileName(record.SourceFile));
         RefreshStats();
     }
 
@@ -422,29 +432,6 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void PreviewLast()
-    {
-        var path = _history.LastOrDefault()?.SourceFile;
-        if (path is null || !File.Exists(path))
-        {
-            MessageBox.Show("Noch keine PDF verfügbar.");
-            return;
-        }
-        new PreviewForm(path).ShowDialog(this);
-    }
-
-    private void CreateTestPdf()
-    {
-        var profile = _config.Profiles.FirstOrDefault(x => x.Enabled);
-        if (profile is null || !Directory.Exists(profile.Folder))
-        {
-            MessageBox.Show("Kein erreichbares Profil vorhanden.");
-            return;
-        }
-        var file = Path.Combine(profile.Folder, $"NTB-Test-{DateTime.Now:yyyyMMdd-HHmmss}.pdf");
-        File.WriteAllBytes(file, Convert.FromBase64String("JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgNTk1IDg0Ml0+PmVuZG9iagp4cmVmCjAgNAowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCnRyYWlsZXI8PC9TaXplIDQvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgoxODUKJSVFT0Y="));
-    }
-
     public void ShowUpdateDialog() => OpenUpdateDialog();
 
     private void OpenUpdateDialog()
@@ -489,6 +476,13 @@ internal sealed class MainForm : Form
         ConfigStore.Save(_config);
         _watcher.UpdateConfig(_config);
         RefreshProfiles();
+    }
+
+    public void StartBackgroundWork()
+    {
+        // Autostart-Eintrag mit der aktuellen Programmposition und Einstellung abgleichen.
+        ConfigStore.ApplyAutoStart(_config);
+        _watcher.Start();
     }
 
     public void StartMonitoring() => _watcher.Start();

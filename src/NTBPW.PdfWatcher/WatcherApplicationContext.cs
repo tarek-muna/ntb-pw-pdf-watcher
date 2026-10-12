@@ -51,7 +51,15 @@ internal sealed class WatcherApplicationContext : ApplicationContext
         };
         _activationTimer.Start();
 
-        AppLogger.Write("Version 4.2.0 gestartet. Tray-Icon initialisiert.");
+        _mainForm.NotificationRequested += (title, text) =>
+        {
+            if (!_exiting) _trayIcon.ShowBalloonTip(4000, title, text, ToolTipIcon.Info);
+        };
+
+        AppLogger.Write($"Version {AppIdentity.DisplayVersion} gestartet. Tray-Icon initialisiert.");
+
+        // Ueberwachung unabhaengig davon starten, ob das Fenster angezeigt wird.
+        _mainForm.StartBackgroundWork();
 
         var minimized = Environment.GetCommandLineArgs()
             .Any(a => string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase));

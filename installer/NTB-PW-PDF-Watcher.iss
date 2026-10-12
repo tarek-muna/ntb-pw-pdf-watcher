@@ -1,5 +1,8 @@
 #define MyAppName "NTB-PW PDF-Watcher Professional"
-#define MyAppVersion "4.2.0"
+; Kann per ISCC /DMyAppVersion=x.y.z ueberschrieben werden (Release-Workflow nutzt den Git-Tag).
+#ifndef MyAppVersion
+  #define MyAppVersion "5.0.1"
+#endif
 #define MyAppPublisher "Netz, Technik, Büro GbR"
 #define MyAppExeName "NTB-PW PDF-Watcher.exe"
 [Setup]
@@ -10,7 +13,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\NTB-PW\PDF-Watcher
 DefaultGroupName=NTB-PW
 OutputDir=..\dist
-OutputBaseFilename=NTB-PW-PDF-Watcher-Setup-4.2.0
+OutputBaseFilename=NTB-PW-PDF-Watcher-Setup-{#MyAppVersion}
 SetupIconFile=..\src\NTBPW.PdfWatcher\Assets\NTB-PW.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
