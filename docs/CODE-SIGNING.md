@@ -4,10 +4,16 @@ Der Release-Workflow kann EXE und Setup auf zwei Arten signieren. Ist nichts ein
 wird unsigniert veröffentlicht. Der integrierte Updater akzeptiert ab der ersten signierten Version
 nur noch Updates vom selben Herausgeber.
 
-| Weg | Kosten | Gültig auf | Geeignet für |
+| Weg | Kosten | Gültig auf | Intelligente App-Steuerung (Smart App Control) |
 |---|---|---|---|
-| **A: Eigenes Zertifikat** | kostenlos | nur PCs, denen das Zertifikat per GPO/Intune bekannt gemacht wurde | interne Verteilung (empfohlen) |
-| **B: Azure Artifact Signing** | 9,99 $/Monat | überall (öffentlich vertrauenswürdig) | Weitergabe an Kunden/Externe |
+| **A: Eigenes Zertifikat** | kostenlos | nur PCs, denen das Zertifikat per GPO/Intune bekannt gemacht wurde | **blockiert weiterhin** |
+| **B: Azure Artifact Signing** | 9,99 $/Monat | überall (öffentlich vertrauenswürdig) | erlaubt |
+
+**Wichtig – Intelligente App-Steuerung (Windows 11):** Sie lässt unbekannte Programme nur zu, wenn sie mit einem
+Zertifikat einer Zertifizierungsstelle aus dem *Microsoft Trusted Root Program* signiert sind (Microsoft-Doku
+„Smart App Control overview“). Ein selbst erzeugtes Zertifikat (Weg A) erfüllt das **nicht**, auch nicht per
+GPO verteilt. Auf PCs mit aktiver App-Steuerung hilft nur Weg B (oder ein gekauftes OV-Zertifikat).
+Auf Geräten, die per Intune/Unternehmensverwaltung verwaltet werden, schaltet Windows die App-Steuerung automatisch ab.
 
 ## A: Kostenlos – eigenes Zertifikat (interne Verteilung)
 
