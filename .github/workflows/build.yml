@@ -35,3 +35,40 @@ jobs:
 
       - name: Tests ausführen
         run: dotnet test .\tests\NTBPW.PdfWatcher.Tests\NTBPW.PdfWatcher.Tests.csproj --configuration Release --logger "console;verbosity=normal"
+
+  installer:
+    # Baut das Setup und prueft Neuinstallation, Upgrade von der letzten Version und Programmstart.
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v6
+
+      - name: .NET 8 einrichten
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Inno Setup installieren
+        shell: powershell
+        run: choco install innosetup --yes --no-progress
+
+      - name: Setup erstellen
+        shell: powershell
+        run: |
+          dotnet publish .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = ([xml](Get-Content .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj)).Project.PropertyGroup.Version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" ".\installer\NTB-PW-PDF-Watcher.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Installation und Upgrade testen
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $setup = Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe | Select-Object -First 1
+          .\tools\test-installer.ps1 -NewSetup $setup.FullName -ExpectedVersion $env:APP_VERSION

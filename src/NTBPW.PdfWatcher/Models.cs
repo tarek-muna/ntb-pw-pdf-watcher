@@ -20,6 +20,8 @@ internal sealed class FilingRule
     public string Name { get; set; } = "Neue Regel";
     public bool Enabled { get; set; } = true;
     public string FileNameContains { get; set; } = "";
+    // Suchbegriffe im erkannten PDF-Text (Windows-OCR); leer = Inhalt wird nicht geprueft.
+    public string ContentContains { get; set; } = "";
     public string ClassificationEquals { get; set; } = "";
     public string DestinationFolder { get; set; } = "";
     public bool CopyInsteadOfMove { get; set; }

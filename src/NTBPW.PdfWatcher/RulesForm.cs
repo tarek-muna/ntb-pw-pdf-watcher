@@ -10,6 +10,7 @@ internal sealed class RulesForm : Form
     private readonly TextBox _name = new();
     private readonly CheckBox _enabled = new() { Text = "Regel aktiv", AutoSize = true };
     private readonly TextBox _contains = new() { PlaceholderText = "z. B. Rechnung;Invoice – leer = alle PDFs" };
+    private readonly TextBox _content = new() { PlaceholderText = "z. B. Musterlieferant GmbH – leer = Inhalt egal" };
     private readonly TextBox _destination = new();
     private readonly CheckBox _copy = new() { Text = "Kopieren statt verschieben (Original bleibt im Scanordner)", AutoSize = true };
     private readonly Panel _editor = new();
@@ -24,8 +25,8 @@ internal sealed class RulesForm : Form
         Text = "Ablageregeln";
         Icon = _appIcon;
         Width = 820;
-        Height = 520;
-        MinimumSize = new Size(760, 470);
+        Height = 600;
+        MinimumSize = new Size(760, 540);
         StartPosition = FormStartPosition.CenterParent;
         BackColor = Color.FromArgb(245, 247, 250);
         Font = new Font("Segoe UI", 9F);
@@ -145,29 +146,32 @@ internal sealed class RulesForm : Form
 
         AddField(form, "Name", _name, 1);
         AddField(form, "Dateiname enthält", _contains, 2);
-        AddField(form, "Zielordner", _destination, 3);
+        AddField(form, "PDF-Inhalt enthält", _content, 3);
+        AddField(form, "Zielordner", _destination, 4);
         var browse = CreateButton("…", false, 34);
         browse.Click += (_, _) => BrowseFolder();
-        form.Controls.Add(browse, 2, 3);
+        form.Controls.Add(browse, 2, 4);
 
         var options = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 6, 0, 0) };
         options.Controls.Add(_enabled);
         options.Controls.Add(_copy);
-        form.Controls.Add(new Label { Text = "Optionen", AutoSize = true, ForeColor = Color.FromArgb(75, 88, 104), Margin = new Padding(0, 10, 8, 0) }, 0, 4);
-        form.Controls.Add(options, 1, 4);
+        form.Controls.Add(new Label { Text = "Optionen", AutoSize = true, ForeColor = Color.FromArgb(75, 88, 104), Margin = new Padding(0, 10, 8, 0) }, 0, 5);
+        form.Controls.Add(options, 1, 5);
         form.SetColumnSpan(options, 2);
 
         var hint = new Label
         {
             Text = "Die Regeln werden von oben nach unten geprüft; die erste passende Regel wird angewendet. " +
                    "Mehrere Suchbegriffe mit Semikolon trennen. Groß-/Kleinschreibung spielt keine Rolle. " +
-                   "Existiert die Datei im Zielordner schon, wird eine Nummer angehängt.",
+                   "Sind Dateiname und Inhalt angegeben, müssen beide passen.\n\n" +
+                   "Für „PDF-Inhalt“ liest die Windows-Texterkennung die ersten drei Seiten. " +
+                   "Das dauert pro PDF einige Sekunden und läuft nur, wenn eine aktive Regel den Inhalt prüft.",
             AutoSize = true,
             MaximumSize = new Size(470, 0),
             ForeColor = Color.FromArgb(112, 126, 144),
             Padding = new Padding(0, 14, 0, 0)
         };
-        form.Controls.Add(hint, 0, 5);
+        form.Controls.Add(hint, 0, 6);
         form.SetColumnSpan(hint, 3);
 
         return outer;
@@ -220,7 +224,7 @@ internal sealed class RulesForm : Form
     private void ClearEditor()
     {
         _loading = true;
-        _name.Text = _contains.Text = _destination.Text = "";
+        _name.Text = _contains.Text = _content.Text = _destination.Text = "";
         _enabled.Checked = _copy.Checked = false;
         _loading = false;
     }
@@ -237,6 +241,7 @@ internal sealed class RulesForm : Form
         _name.Text = rule.Name;
         _enabled.Checked = rule.Enabled;
         _contains.Text = rule.FileNameContains;
+        _content.Text = rule.ContentContains;
         _destination.Text = rule.DestinationFolder;
         _copy.Checked = rule.CopyInsteadOfMove;
         _loading = false;
@@ -249,6 +254,7 @@ internal sealed class RulesForm : Form
         rule.Name = string.IsNullOrWhiteSpace(_name.Text) ? $"Regel {_currentIndex + 1}" : _name.Text.Trim();
         rule.Enabled = _enabled.Checked;
         rule.FileNameContains = _contains.Text.Trim();
+        rule.ContentContains = _content.Text.Trim();
         rule.DestinationFolder = _destination.Text.Trim();
         rule.CopyInsteadOfMove = _copy.Checked;
     }

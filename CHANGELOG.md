@@ -2,7 +2,22 @@
 
 Alle wesentlichen Änderungen am NTB-PW PDF-Watcher werden hier dokumentiert.
 
-## [5.1.0] - unveröffentlicht
+## [5.2.0] - unveröffentlicht
+
+### Hinzugefügt
+- Ablageregeln können nach dem PDF-Inhalt filtern („PDF-Inhalt enthält“). Der Text wird mit der in Windows eingebauten Texterkennung von den ersten drei Seiten gelesen – nur wenn eine aktive Regel ihn braucht.
+- Suche in der Dokumentenansicht durchsucht auch den erkannten Text.
+- Jeder Build installiert die letzte veröffentlichte Version, aktualisiert sie auf die neue, startet die Anwendung und deinstalliert wieder (`tools\test-installer.ps1`); dasselbe läuft vor jedem Release.
+- `RELEASE.cmd` liest die Version aus der Projektdatei und prüft Branch, offene Änderungen und vorhandene Tags.
+
+### Geändert
+- Mindestens Windows 10 Version 2004 erforderlich (für die Windows-Texterkennung).
+- Tesseract wird nicht mehr verwendet.
+
+### Entfernt
+- Veraltete Dateien `README.txt`, `UPLOAD-TO-GITHUB.cmd` und `RELEASE-5.0.0.cmd`.
+
+## [5.1.0] - 2026-10-12
 
 ### Hinzugefügt
 - Neuer Bereich „Ablageregeln“ in der Seitenleiste: PDFs anhand des Dateinamens automatisch in Zielordner verschieben oder kopieren. Mehrere Suchbegriffe per Semikolon, Reihenfolge per Hoch/Runter, die erste passende Regel gilt.

@@ -1,32 +1,42 @@
-# NTB-PW PDF-Watcher Professional 5.0
+# NTB-PW PDF-Watcher Professional – Roadmap 5.x
 
-## Ziel
-Version 5.0 erhält eine kompakte, aufgeräumte Oberfläche und eine klarere interne Struktur, ohne die funktionierende PDF-Überwachung zu gefährden.
+## Erledigt
 
-## Meilensteine
+### 5.0 – Grundlage
+- Kompaktes Dashboard mit Seitenleiste, Statuskarten und Live-Protokoll
+- Mehrere Scanner-Profile, Dokumentenansicht, Historie und Statistik
+- GitHub-Updates mit SHA-256-Prüfung
 
-### 1. Grundlage
-- zentrale Produkt- und Versionsdaten
-- Alpha-Versionierung
-- Changelog und nachvollziehbare Branches
+### 5.0.1 – Stabilisierung
+- Überwachung startet auch beim Autostart (minimiert)
+- Keine erneute Verarbeitung vorhandener PDFs beim Start, Wiederholung unfertiger Dateien
+- Überwachung im Hintergrund, keine UI-Hänger bei Netzwerk-/RDP-Pfaden
+- Setup-Version folgt der Projektversion
 
-### 2. Kompaktes Dashboard
-- Seitenleiste für Dashboard, Scanner, Historie, Statistik, Einstellungen, Protokoll, Updates und Info
-- Live-Status der Überwachung
-- letzte verarbeitete PDF
-- kompakte Scanner-Karten
+### 5.1 – Vertrauen und Ablage
+- Zugangsdaten mit DPAPI verschlüsselt
+- Aufgeräumte Einstellungen, Profile nur an einer Stelle
+- Ablageregeln mit eigener Oberfläche
+- PDF-Vorschau über WebView2, Protokoll-Rotation
+- Automatische Tests in Build und Release
 
-### 3. Einstellungen
-- grafischer Dialog statt direktem Öffnen der JSON-Datei
-- automatische Validierung und Speicherung
-- Import, Export und Zurücksetzen
+### 5.2 – Inhalt erkennen
+- Windows-OCR statt Tesseract, Ablageregeln nach PDF-Inhalt
+- Suche im erkannten Text
+- Installations- und Upgrade-Test in GitHub Actions
 
-### 4. Updates
-- GitHub Releases als Updatequelle
-- SHA-256-Prüfung
-- Release Notes und Fortschrittsanzeige
+## Offen
 
-### 5. Stabilisierung
-- Build-Prüfung über GitHub Actions
-- Fehlerprotokollierung
-- Installer- und Upgrade-Tests
+### Code-Signatur
+- Setup und EXE signieren (z. B. Azure Trusted Signing), damit SmartScreen nicht warnt
+- Updater prüft zusätzlich die Signatur des heruntergeladenen Setups
+- Benötigt: Azure-Konto bzw. Zertifikat
+
+### Komfort
+- Dashboard: Status je Profil statt eines Gesamtstatus
+- Statistik: aussagekräftige Spalten statt Rohdaten
+- Import/Export der Konfiguration (Profile und Regeln)
+
+### Optional
+- Dunkles Design und englische Oberfläche (derzeit ausgeblendet)
+- KI-Klassifizierung (derzeit ausgeblendet) auf Basis des OCR-Textes

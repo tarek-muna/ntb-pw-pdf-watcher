@@ -12,7 +12,36 @@ public sealed class FilingRuleTests
     [InlineData("Lieferschein.pdf", " ; ", true)]
     public void Dateinamenfilter(string fileName, string filter, bool expected)
     {
-        Assert.Equal(expected, ProcessingServices.MatchesFileName(fileName, filter));
+        Assert.Equal(expected, ProcessingServices.MatchesTerms(fileName, filter));
+    }
+
+    [Fact]
+    public void Inhaltsregel_greift_nur_bei_passendem_Text()
+    {
+        using var source = new TempDirectory();
+        using var target = new TempDirectory();
+        var rules = new[] { new FilingRule { ContentContains = "Muster GmbH", DestinationFolder = target.Path } };
+
+        var other = source.File("scan1.pdf");
+        File.WriteAllBytes(other, TestPdf.Bytes);
+        Assert.Equal(other, Services.ApplyRules(other, "", rules, "Andere Firma AG"));
+
+        // Zeilenumbrueche und Mehrfach-Leerzeichen aus der OCR duerfen den Treffer nicht verhindern.
+        var match = source.File("scan2.pdf");
+        File.WriteAllBytes(match, TestPdf.Bytes);
+        Assert.Equal(target.File("scan2.pdf"), Services.ApplyRules(match, "", rules, "Rechnung von\nMuster   GmbH\r\nBerlin"));
+    }
+
+    [Fact]
+    public void Dateiname_und_Inhalt_muessen_beide_passen()
+    {
+        using var source = new TempDirectory();
+        using var target = new TempDirectory();
+        var rules = new[] { new FilingRule { FileNameContains = "Rechnung", ContentContains = "Muster", DestinationFolder = target.Path } };
+        var file = source.File("Lieferschein.pdf");
+        File.WriteAllBytes(file, TestPdf.Bytes);
+
+        Assert.Equal(file, Services.ApplyRules(file, "", rules, "Muster GmbH"));
     }
 
     [Fact]
