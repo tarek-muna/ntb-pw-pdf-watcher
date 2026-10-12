@@ -22,7 +22,11 @@ jobs:
       #  - sonst eigenes Zertifikat, wenn das Secret SIGNING_PFX_BASE64 gesetzt ist,
       #  - sonst unsigniert.
       AZURE_SIGNING: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' }}
-      PFX_SIGNING: ${{ vars.ARTIFACT_SIGNING_ACCOUNT == '' && secrets.SIGNING_PFX_BASE64 != '' }}
+      SIGNING_ENABLED: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' || secrets.SIGNING_PFX_BASE64 != '' }}
+      # Keine Geheimnisse – werden von tools\sign-file.ps1 gelesen.
+      ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+      ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+      ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
 
     steps:
       - name: Repository auschecken
@@ -70,56 +74,28 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Signaturwerkzeug für Azure vorbereiten
+        if: env.AZURE_SIGNING == 'true'
+        shell: powershell
+        run: .\tools\prepare-artifact-signing.ps1
+
       - name: Anwendung signieren
-        if: env.AZURE_SIGNING == 'true'
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
-          files-folder: ${{ github.workspace }}\publish
-          files-folder-filter: exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      - name: Anwendung signieren (eigenes Zertifikat)
-        if: env.PFX_SIGNING == 'true'
+        if: env.SIGNING_ENABLED == 'true'
         shell: powershell
         env:
           SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
           SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
-        run: .\tools\sign-with-pfx.ps1 -Files '.\publish\NTB-PW PDF-Watcher.exe' -TrustOnThisMachine
+        run: .\tools\sign-file.ps1 -Files '.\publish\NTB-PW PDF-Watcher.exe' -TrustOnThisMachine
 
-      - name: Setup erstellen
-        shell: powershell
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:APP_VERSION" ".\installer\NTB-PW-PDF-Watcher.iss"'
-
-      - name: Setup signieren (eigenes Zertifikat)
-        if: env.PFX_SIGNING == 'true'
+      - name: Setup erstellen (Setup und Deinstallation werden dabei signiert)
         shell: powershell
         env:
           SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
           SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
-        run: |
-          $setup = Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe | Select-Object -First 1
-          .\tools\sign-with-pfx.ps1 -Files $setup.FullName
-
-      - name: Setup signieren
-        if: env.AZURE_SIGNING == 'true'
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
-          files-folder: ${{ github.workspace }}\dist
-          files-folder-filter: exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
+        run: .\tools\build-installer.ps1 -Version $env:APP_VERSION -Sign:($env:SIGNING_ENABLED -eq 'true')
 
       - name: Signatur prüfen
-        if: env.AZURE_SIGNING == 'true' || env.PFX_SIGNING == 'true'
+        if: env.SIGNING_ENABLED == 'true'
         shell: powershell
         run: |
           foreach ($file in @(Get-Item '.\publish\NTB-PW PDF-Watcher.exe') + @(Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe)) {
@@ -142,7 +118,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $setup = Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe | Select-Object -First 1
-          .\tools\test-installer.ps1 -NewSetup $setup.FullName -ExpectedVersion $env:APP_VERSION
+          .\tools\test-installer.ps1 -NewSetup $setup.FullName -ExpectedVersion $env:APP_VERSION -ExpectSigned:($env:SIGNING_ENABLED -eq 'true')
 
       - name: GitHub Release veröffentlichen
         if: startsWith(github.ref, 'refs/tags/')

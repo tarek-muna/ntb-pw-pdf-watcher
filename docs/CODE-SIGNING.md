@@ -107,9 +107,12 @@ Die Umgebung `release` wird beim ersten Release-Lauf automatisch angelegt. Optio
 Beim nächsten Release (`RELEASE.cmd`) signiert der Workflow:
 
 1. `NTB-PW PDF-Watcher.exe` vor dem Verpacken,
-2. `NTB-PW-PDF-Watcher-Setup-<Version>.exe` nach dem Verpacken,
+2. das Setup `NTB-PW-PDF-Watcher-Setup-<Version>.exe` und das Deinstallationsprogramm `unins000.exe`
+   während des Verpackens (Inno Setup ruft dafür `tools\sign-file.ps1` auf),
 
-und bricht ab, wenn eine Signatur ungültig ist. Lokal prüfen:
+und bricht ab, wenn eine Signatur ungültig ist. Der Installer-Test prüft nach der Installation auch die
+installierte EXE und `unins000.exe`. Der Build testet diesen ganzen Ablauf bei jedem Push mit einem
+Wegwerf-Zertifikat. Lokal prüfen:
 
 ```powershell
 Get-AuthenticodeSignature .\NTB-PW-PDF-Watcher-Setup-<Version>.exe | Format-List Status, SignerCertificate
@@ -117,7 +120,8 @@ Get-AuthenticodeSignature .\NTB-PW-PDF-Watcher-Setup-<Version>.exe | Format-List
 
 ## Hinweise
 
-- Die Deinstallationsdatei `unins000.exe` von Inno Setup wird derzeit nicht signiert.
+- Für Azure lädt der Workflow die Signaturbibliothek `Microsoft.ArtifactSigning.Client` von NuGet
+  (`tools\prepare-artifact-signing.ps1`) und signiert mit `signtool` aus dem Windows SDK.
 - Zertifikate von Artifact Signing sind nur wenige Tage gültig; durch den Zeitstempel bleiben die Signaturen dauerhaft gültig.
 - Fällt Artifact Signing aus oder wird das Konto gekündigt, die Variable `ARTIFACT_SIGNING_ACCOUNT` löschen –
   dann werden Releases wieder unsigniert erstellt. Bereits signierte Installationen akzeptieren dann aber keine
