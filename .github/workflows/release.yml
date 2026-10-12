@@ -64,6 +64,14 @@ jobs:
           $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $($setup.Name)" | Set-Content -Encoding ascii "$($setup.FullName).sha256"
 
+      - name: Installation und Upgrade testen
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $setup = Get-ChildItem .\dist\NTB-PW-PDF-Watcher-Setup-*.exe | Select-Object -First 1
+          .\tools\test-installer.ps1 -NewSetup $setup.FullName -ExpectedVersion $env:APP_VERSION
+
       - name: GitHub Release veröffentlichen
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
