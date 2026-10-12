@@ -92,4 +92,10 @@ Bei jedem Push auf `main`, `feature/**` und `fix/**` sowie bei Pull Requests:
 
 Der Release-Workflow prüft, dass Tag und Version übereinstimmen, führt Tests und Installer-Test aus
 und veröffentlicht `NTB-PW-PDF-Watcher-Setup-<Version>.exe` samt `.sha256` im GitHub-Release.
-Der integrierte Updater lädt das Setup, prüft SHA-256 und startet anschließend den Installer.
+Der integrierte Updater lädt das Setup, prüft SHA-256 (und bei signierten Installationen den Herausgeber)
+und startet anschließend den Installer.
+
+### Code-Signatur
+
+Optional – kostenlos mit eigenem Zertifikat für die interne Verteilung oder öffentlich über Azure Artifact Signing.
+Einrichtung siehe [docs/CODE-SIGNING.md](docs/CODE-SIGNING.md).

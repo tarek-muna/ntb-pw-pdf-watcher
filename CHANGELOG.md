@@ -2,7 +2,19 @@
 
 Alle wesentlichen Änderungen am NTB-PW PDF-Watcher werden hier dokumentiert.
 
-## [5.2.0] - unveröffentlicht
+## [5.3.0] - unveröffentlicht
+
+### Hinzugefügt
+- Dashboard zeigt den Status je Scanner-Profil (Aktiv, Ordner nicht erreichbar, Deaktiviert, Gestoppt); Doppelklick öffnet den Ordner.
+- Neue Statistik: Kennzahlen (Heute, 7/30 Tage, Gesamt, Fehler), Auswertung je Profil und Verlauf der letzten 14 Tage.
+- Konfiguration exportieren und importieren (Einstellungen → Erweitert); Passwörter werden nicht exportiert und beim Import beibehalten.
+- Code-Signatur im Release-Workflow: kostenlos mit eigenem Zertifikat (`tools\new-signing-certificate.ps1`) oder über Azure Artifact Signing. Anleitung: `docs/CODE-SIGNING.md`.
+- Der Updater prüft bei signierten Installationen, dass das Update vom selben Herausgeber signiert ist.
+
+### Behoben
+- Bei falscher SHA-256-Prüfsumme wurde die heruntergeladene Datei nicht gelöscht und statt der eigentlichen Meldung ein Dateizugriffsfehler angezeigt.
+
+## [5.2.0] - 2026-10-12
 
 ### Hinzugefügt
 - Ablageregeln können nach dem PDF-Inhalt filtern („PDF-Inhalt enthält“). Der Text wird mit der in Windows eingebauten Texterkennung von den ersten drei Seiten gelesen – nur wenn eine aktive Regel ihn braucht.

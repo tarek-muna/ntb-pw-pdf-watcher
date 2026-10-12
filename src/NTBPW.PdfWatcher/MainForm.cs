@@ -11,7 +11,17 @@ internal sealed class MainForm : Form
     private readonly Label _last = new() { AutoSize = true, Text = "–" };
     private readonly Label _today = new() { AutoSize = true, Text = "0" };
     private readonly Label _profileCount = new() { AutoSize = true, Text = "0" };
-    private readonly ListBox _profiles = new() { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None };
+    private readonly ListBox _profiles = new()
+    {
+        Dock = DockStyle.Fill,
+        BorderStyle = BorderStyle.None,
+        DrawMode = DrawMode.OwnerDrawFixed,
+        ItemHeight = 46,
+        IntegralHeight = false
+    };
+    private readonly Font _profileNameFont = new("Segoe UI", 9.5F, FontStyle.Bold);
+    // Letzter gemeldeter Status je Profil-Id (nur im UI-Thread verwendet).
+    private readonly Dictionary<string, string> _profileStates = [];
     private readonly TextBox _log = new()
     {
         Multiline = true,
@@ -41,6 +51,8 @@ internal sealed class MainForm : Form
         Icon = _appIcon;
 
         _watcher = NewWatcher();
+        _profiles.DrawItem += DrawProfileItem;
+        _profiles.DoubleClick += (_, _) => OpenSelectedProfileFolder();
         BuildUi();
         RefreshProfiles();
         RefreshStats();
@@ -80,6 +92,11 @@ internal sealed class MainForm : Form
     {
         var watcher = new MultiWatcherService(_config);
         watcher.StatusChanged += state => PostToUi(() => SetStatus(state));
+        watcher.ProfileStatusChanged += (id, state) => PostToUi(() =>
+        {
+            _profileStates[id] = state;
+            _profiles.Invalidate();
+        });
         watcher.Processed += record => PostToUi(() => OnProcessed(record));
         return watcher;
     }
@@ -373,6 +390,8 @@ internal sealed class MainForm : Form
 
     private void SetStatus(string state)
     {
+        if (state == "stopped") _profileStates.Clear();
+        _profiles.Invalidate();
         _status.Text = state == "active" ? "● Aktiv" : state == "disconnected" ? "● Getrennt" : "● Gestoppt";
         _status.ForeColor = state == "active" ? Color.ForestGreen : state == "disconnected" ? Color.DarkOrange : Color.Firebrick;
     }
@@ -394,8 +413,51 @@ internal sealed class MainForm : Form
     {
         _profiles.Items.Clear();
         foreach (var profile in _config.Profiles)
-            _profiles.Items.Add($"{(profile.Enabled ? "●" : "○")} {profile.Name}\r\n   {profile.Folder}");
+            _profiles.Items.Add(profile);
         _profileCount.Text = _config.Profiles.Count(p => p.Enabled).ToString();
+    }
+
+    private (string Text, Color Color) ProfileStatus(WatchProfile profile)
+    {
+        if (!profile.Enabled) return ("Deaktiviert", Color.Gray);
+        if (!_watcher.IsRunning) return ("Gestoppt", Color.Firebrick);
+        return _profileStates.GetValueOrDefault(profile.Id) switch
+        {
+            "active" => ("Aktiv", Color.ForestGreen),
+            "disconnected" => ("Ordner nicht erreichbar", Color.DarkOrange),
+            _ => ("Wird gestartet …", Color.Gray)
+        };
+    }
+
+    // Zweizeilige Darstellung je Profil: Name und darunter Status und Ordner.
+    private void DrawProfileItem(object? sender, DrawItemEventArgs e)
+    {
+        if (e.Index < 0 || e.Index >= _profiles.Items.Count || _profiles.Items[e.Index] is not WatchProfile profile) return;
+        e.DrawBackground();
+        var selected = (e.State & DrawItemState.Selected) != 0;
+        var (status, color) = ProfileStatus(profile);
+        var bounds = e.Bounds;
+
+        using (var dot = new SolidBrush(color))
+            e.Graphics.FillEllipse(dot, bounds.X + 4, bounds.Y + 9, 10, 10);
+
+        var nameColor = selected ? SystemColors.HighlightText : Color.FromArgb(31, 45, 61);
+        var detailColor = selected ? SystemColors.HighlightText : Color.FromArgb(112, 126, 144);
+        TextRenderer.DrawText(e.Graphics, profile.Name, _profileNameFont,
+            new Rectangle(bounds.X + 20, bounds.Y + 3, bounds.Width - 24, 20), nameColor, TextFormatFlags.EndEllipsis);
+        TextRenderer.DrawText(e.Graphics, $"{status} · {profile.Folder}", _profiles.Font,
+            new Rectangle(bounds.X + 20, bounds.Y + 23, bounds.Width - 24, 20), detailColor, TextFormatFlags.EndEllipsis);
+    }
+
+    private void OpenSelectedProfileFolder()
+    {
+        if (_profiles.SelectedItem is not WatchProfile profile) return;
+        if (!Directory.Exists(profile.Folder))
+        {
+            MessageBox.Show(this, $"Der Ordner ist nicht erreichbar:\n{profile.Folder}", "Scanner-Profil", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        Process.Start(new ProcessStartInfo(profile.Folder) { UseShellExecute = true });
     }
 
     private void RefreshStats()
