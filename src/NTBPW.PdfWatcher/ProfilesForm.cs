@@ -66,6 +66,12 @@ internal sealed class ProfilesForm : Form
         save.Click += (_, _) =>
         {
             SaveCurrentProfile();
+            var missing = _profiles.FirstOrDefault(p => p.Enabled && string.IsNullOrWhiteSpace(p.Folder));
+            if (missing is not null)
+            {
+                MessageBox.Show(this, $"Für das aktive Profil '{missing.Name}' ist kein Überwachungsordner angegeben.", "Scanner-Profile", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             DialogResult = DialogResult.OK;
             Close();
         };

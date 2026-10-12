@@ -32,3 +32,6 @@ jobs:
 
       - name: Anwendung kompilieren
         run: dotnet build .\src\NTBPW.PdfWatcher\NTBPW.PdfWatcher.csproj --configuration Release --no-restore
+
+      - name: Tests ausführen
+        run: dotnet test .\tests\NTBPW.PdfWatcher.Tests\NTBPW.PdfWatcher.Tests.csproj --configuration Release --logger "console;verbosity=normal"

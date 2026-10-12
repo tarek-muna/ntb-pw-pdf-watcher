@@ -23,6 +23,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Tests ausführen
+        run: dotnet test .\tests\NTBPW.PdfWatcher.Tests\NTBPW.PdfWatcher.Tests.csproj --configuration Release
+
       - name: Inno Setup installieren
         shell: powershell
         run: choco install innosetup --yes --no-progress

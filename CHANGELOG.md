@@ -2,7 +2,22 @@
 
 Alle wesentlichen Änderungen am NTB-PW PDF-Watcher werden hier dokumentiert.
 
-## [5.0.1] - unveröffentlicht
+## [5.1.0] - unveröffentlicht
+
+### Geändert
+- SMTP-Passwort und KI-Schlüssel werden mit Windows-DPAPI verschlüsselt gespeichert. Klartext-Werte aus 5.0.x werden beim ersten Start automatisch verschlüsselt übernommen.
+- Scanner-Profile werden nur noch an einer Stelle (Seitenleiste „Scanner“) bearbeitet; der doppelte Reiter in den Einstellungen entfällt.
+- Profile ohne Überwachungsordner können nicht mehr aktiv gespeichert werden.
+- „Standardwerte“ in den Einstellungen lässt Scanner-Profile und Ablageregeln unangetastet.
+- Einstellungen prüfen jetzt Pflichtangaben für E-Mail und Ordnerkopie.
+
+### Entfernt
+- Wirkungslose oder unfertige Optionen aus der Oberfläche: Design, Sprache, OCR und KI-Klassifizierung. Vorhandene Werte bleiben in der Konfiguration erhalten.
+
+### Intern
+- Automatische Tests für Überwachung, Ablageregeln, Update-Versionen und Verschlüsselung; sie laufen bei jedem Build und vor jedem Release.
+
+## [5.0.1] - 2026-10-12
 
 ### Behoben
 - Überwachung startet jetzt auch beim Windows-Autostart (`--minimized`), ohne dass das Dashboard geöffnet werden muss.

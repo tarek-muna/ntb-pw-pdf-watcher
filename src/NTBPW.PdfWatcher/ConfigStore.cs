@@ -16,7 +16,18 @@ internal static class ConfigStore
         {
             Directory.CreateDirectory(AppConfig.DataDirectory);
             if (!File.Exists(AppConfig.ConfigPath)) return new AppConfig();
-            return JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(AppConfig.ConfigPath), Options) ?? new AppConfig();
+            var config = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(AppConfig.ConfigPath), Options) ?? new AppConfig();
+            if (config.HasLegacySecrets)
+            {
+                // Klartext-Passwoerter aus 5.0.x sofort verschluesselt zurueckschreiben.
+                try
+                {
+                    WriteConfig(config);
+                    AppLogger.Write("Gespeicherte Zugangsdaten wurden verschlüsselt.");
+                }
+                catch (Exception ex) { AppLogger.Write("Zugangsdaten konnten nicht verschlüsselt werden: " + ex.Message); }
+            }
+            return config;
         }
         catch (Exception ex)
         {
@@ -34,9 +45,14 @@ internal static class ConfigStore
 
     public static void Save(AppConfig config)
     {
+        WriteConfig(config);
+        ApplyAutoStart(config);
+    }
+
+    private static void WriteConfig(AppConfig config)
+    {
         Directory.CreateDirectory(AppConfig.DataDirectory);
         File.WriteAllText(AppConfig.ConfigPath, JsonSerializer.Serialize(config, Options));
-        ApplyAutoStart(config);
     }
 
     public static void ApplyAutoStart(AppConfig config)
