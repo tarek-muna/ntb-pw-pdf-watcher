@@ -298,9 +298,12 @@ internal sealed class SettingsForm : Form
     private void EditProfiles()
     {
         SaveCurrentProfile();
-        using var form = new ProfilesForm(_working.Profiles);
+        // Mit einer Kopie arbeiten, damit "Abbrechen" die Profile wirklich unveraendert laesst.
+        var copy = JsonSerializer.Deserialize<List<WatchProfile>>(JsonSerializer.Serialize(_working.Profiles)) ?? [];
+        using var form = new ProfilesForm(copy);
         if (form.ShowDialog(this) == DialogResult.OK)
         {
+            _working.Profiles = copy;
             _loadedProfileIndex = -1;
             LoadProfileList();
         }

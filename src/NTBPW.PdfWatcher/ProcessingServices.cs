@@ -18,11 +18,22 @@ internal sealed class ProcessingServices
         var tempBase = Path.Combine(Path.GetTempPath(), "ntbpw_" + Guid.NewGuid().ToString("N"));
         try
         {
-            var psi = new ProcessStartInfo(_config.TesseractExe, $"\"{pdf}\" \"{tempBase}\" -l {_config.TesseractLanguage} pdf")
-            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
+            // stderr wird nicht umgeleitet: ungelesen kann der Puffer volllaufen und Tesseract blockieren.
+            var psi = new ProcessStartInfo(_config.TesseractExe) { UseShellExecute = false, CreateNoWindow = true };
+            psi.ArgumentList.Add(pdf);
+            psi.ArgumentList.Add(tempBase);
+            psi.ArgumentList.Add("-l");
+            psi.ArgumentList.Add(string.IsNullOrWhiteSpace(_config.TesseractLanguage) ? "deu+eng" : _config.TesseractLanguage.Trim());
             using var p = Process.Start(psi);
             if (p is null) return "";
-            await p.WaitForExitAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            try { await p.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException)
+            {
+                try { p.Kill(true); } catch { }
+                AppLogger.Write("OCR-Fehler: Tesseract hat nach 2 Minuten nicht geantwortet.");
+                return "";
+            }
             var txt = tempBase + ".txt";
             return File.Exists(txt) ? await File.ReadAllTextAsync(txt) : "";
         }

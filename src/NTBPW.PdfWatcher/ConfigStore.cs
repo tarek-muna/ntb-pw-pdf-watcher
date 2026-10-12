@@ -5,6 +5,9 @@ namespace NTBPW.PdfWatcher;
 
 internal static class ConfigStore
 {
+    public const int MaxHistoryEntries = 10000;
+    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string RunValueName = "NTB-PW PDF-Watcher 3";
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public static AppConfig Load()
@@ -15,17 +18,47 @@ internal static class ConfigStore
             if (!File.Exists(AppConfig.ConfigPath)) return new AppConfig();
             return JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(AppConfig.ConfigPath), Options) ?? new AppConfig();
         }
-        catch { return new AppConfig(); }
+        catch (Exception ex)
+        {
+            // Defekte Konfiguration sichern, bevor sie beim naechsten Speichern ueberschrieben wird.
+            try
+            {
+                var backup = AppConfig.ConfigPath + $".defekt-{DateTime.Now:yyyyMMdd-HHmmss}";
+                File.Copy(AppConfig.ConfigPath, backup, true);
+                AppLogger.Write($"Konfiguration konnte nicht gelesen werden ({ex.Message}). Sicherung: {backup}");
+            }
+            catch { }
+            return new AppConfig();
+        }
     }
 
     public static void Save(AppConfig config)
     {
         Directory.CreateDirectory(AppConfig.DataDirectory);
         File.WriteAllText(AppConfig.ConfigPath, JsonSerializer.Serialize(config, Options));
-        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
-        if (key is null) return;
-        if (config.AutoStart) key.SetValue("NTB-PW PDF-Watcher 3", $"\"{Application.ExecutablePath}\" --minimized");
-        else key.DeleteValue("NTB-PW PDF-Watcher 3", false);
+        ApplyAutoStart(config);
+    }
+
+    public static void ApplyAutoStart(AppConfig config)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
+            if (key is null) return;
+            if (config.AutoStart)
+            {
+                var arguments = config.StartMinimized ? " --minimized" : "";
+                key.SetValue(RunValueName, $"\"{Application.ExecutablePath}\"{arguments}");
+            }
+            else
+            {
+                key.DeleteValue(RunValueName, false);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Write("Autostart konnte nicht gesetzt werden: " + ex.Message);
+        }
     }
 
     public static List<ProcessingRecord> LoadHistory()
@@ -41,6 +74,6 @@ internal static class ConfigStore
     public static void SaveHistory(List<ProcessingRecord> history)
     {
         Directory.CreateDirectory(AppConfig.DataDirectory);
-        File.WriteAllText(AppConfig.HistoryPath, JsonSerializer.Serialize(history.TakeLast(10000), Options));
+        File.WriteAllText(AppConfig.HistoryPath, JsonSerializer.Serialize(history.TakeLast(MaxHistoryEntries), Options));
     }
 }
