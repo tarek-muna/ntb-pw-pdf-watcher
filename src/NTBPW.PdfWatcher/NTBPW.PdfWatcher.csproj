@@ -9,14 +9,18 @@
     <Win32Resource></Win32Resource>
     <AssemblyName>NTB-PW PDF-Watcher</AssemblyName>
     <RootNamespace>NTBPW.PdfWatcher</RootNamespace>
-    <Version>5.0.1</Version>
-    <AssemblyVersion>5.0.1.0</AssemblyVersion>
-    <FileVersion>5.0.1.0</FileVersion>
-    <InformationalVersion>5.0.1</InformationalVersion>
+    <Version>5.1.0</Version>
+    <AssemblyVersion>5.1.0.0</AssemblyVersion>
+    <FileVersion>5.1.0.0</FileVersion>
+    <InformationalVersion>5.1.0</InformationalVersion>
     <Company>Netz, Technik, Büro GbR</Company>
     <Product>NTB-PW PDF-Watcher Professional</Product>
     <Copyright>© Tarek Muna 2026</Copyright>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <InternalsVisibleTo Include="NTBPW.PdfWatcher.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="Assets\NTB-Logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="Assets\NTB-PW.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
