@@ -16,7 +16,9 @@
 param(
     [Parameter(Mandatory)] [string]$NewSetup,
     [Parameter(Mandatory)] [string]$ExpectedVersion,
-    [string]$Repository = 'tarek-muna/ntb-pw-pdf-watcher'
+    [string]$Repository = 'tarek-muna/ntb-pw-pdf-watcher',
+    # Signierter Build: installierte EXE und Deinstallationsprogramm muessen gueltig signiert sein.
+    [switch]$ExpectSigned
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,9 +36,28 @@ function Get-InstallInfo {
     return $null
 }
 
-function Install-Setup([string]$Path, [string]$Label) {
+function Install-Setup([string]$Path, [string]$Label, [switch]$ProbeTempFiles) {
     Write-Host "Installiere $Label ..."
-    $p = Start-Process -FilePath $Path -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait -PassThru
+    $before = @(Get-ChildItem $env:TEMP -Directory -Filter 'is-*.tmp' -ErrorAction SilentlyContinue | ForEach-Object FullName)
+    $p = Start-Process -FilePath $Path -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -PassThru
+    $probed = @{}
+    while (-not $p.HasExited) {
+        if ($ProbeTempFiles) {
+            # Inno Setup entpackt waehrend der Installation eine Hilfs-EXE (setup.tmp) nach %TEMP%\is-*.tmp.
+            # Die intelligente App-Steuerung prueft auch diese Datei; hier wird ihre Signatur protokolliert.
+            Get-ChildItem $env:TEMP -Directory -Filter 'is-*.tmp' -ErrorAction SilentlyContinue |
+                Where-Object { $before -notcontains $_.FullName } |
+                Get-ChildItem -Filter '*.tmp' -File -ErrorAction SilentlyContinue |
+                Where-Object { -not $probed.ContainsKey($_.FullName) } |
+                ForEach-Object {
+                    try { $probed[$_.FullName] = (Get-AuthenticodeSignature $_.FullName).Status } catch { }
+                }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    $p.WaitForExit()
+    foreach ($entry in $probed.GetEnumerator()) { Write-Host "  Hilfsdatei $(Split-Path $entry.Key -Leaf): Signatur $($entry.Value)" }
+    if ($ProbeTempFiles -and $probed.Count -eq 0) { Write-Host '  Hilfsdatei setup.tmp konnte nicht erfasst werden.' }
     if ($p.ExitCode -ne 0) { throw "$Label`: Setup endete mit Code $($p.ExitCode)." }
     $info = Get-InstallInfo
     if (-not $info) { throw "$Label`: Kein Deinstallationseintrag gefunden." }
@@ -69,7 +90,7 @@ if ($previous -and $previousVersion -ne $ExpectedVersion) {
 }
 
 # 3. Neue Version
-$new = Install-Setup $NewSetup "Neue Version $ExpectedVersion"
+$new = Install-Setup $NewSetup "Neue Version $ExpectedVersion" -ProbeTempFiles:$ExpectSigned
 if ($new.DisplayVersion -ne $ExpectedVersion) { throw "Installierte Version $($new.DisplayVersion), erwartet $ExpectedVersion." }
 $exe = Join-Path $new.InstallLocation $ExeName
 if (-not (Test-Path $exe)) { throw "$exe fehlt nach der Installation." }
@@ -79,6 +100,14 @@ if ((Test-Path $ConfigPath) -and -not ((Get-Content $ConfigPath -Raw) -match 'Up
     throw 'Die Konfiguration wurde beim Upgrade verändert oder überschrieben.'
 }
 Write-Host '  Version und Konfiguration geprüft.'
+
+if ($ExpectSigned) {
+    foreach ($file in @($exe, (Join-Path $new.InstallLocation 'unins000.exe'))) {
+        $sig = Get-AuthenticodeSignature $file
+        if ($sig.Status -ne 'Valid') { throw "$(Split-Path $file -Leaf) ist nicht gültig signiert ($($sig.Status))." }
+        Write-Host "  $(Split-Path $file -Leaf): signiert von $($sig.SignerCertificate.Subject)"
+    }
+}
 
 # 4. Starttest
 $logBefore = if (Test-Path $LogPath) { (Get-Item $LogPath).Length } else { 0 }

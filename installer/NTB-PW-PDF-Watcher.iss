@@ -23,6 +23,13 @@ PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
 RestartApplications=no
+; Signatur von Setup und Deinstallationsprogramm (fuer die intelligente App-Steuerung muessen alle
+; ausfuehrbaren Dateien signiert sein). Der Release-Workflow uebergibt /DUseSignTool und das
+; Signaturkommando per ISCC /Sntbpw=... (tools\sign-file.ps1).
+#ifdef UseSignTool
+SignTool=ntbpw
+SignedUninstaller=yes
+#endif
 [Files]
 Source: "..\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
